@@ -51,37 +51,6 @@ contract MultiPriceConsumer {
         return timeStamp;
     }
 
-    function getPriceTimeInfo(string memory symbol) public view returns (
-        int price,
-        uint timeStamp,
-        uint timeElapsed,
-        uint80 answeredInRound,
-        uint80 roundId
-    ) {
-        require(priceFeeds[symbol] != address(0), "Price feed not set");
-        (uint80 roundID, int latestPrice,, uint updateTime, uint80 answeredRound) =
-            AggregatorV3Interface(priceFeeds[symbol]).latestRoundData();
-
-        return (
-            latestPrice,
-            updateTime,
-            block.timestamp - updateTime,
-            answeredRound,
-            roundID
-        );
-    }
-
-    function getLatestRoundData(string memory symbol) public view returns (
-        uint80 roundId,
-        int256 answer,
-        uint256 startedAt,
-        uint256 updatedAt,
-        uint80 answeredInRound
-    ) {
-        require(priceFeeds[symbol] != address(0), "Price feed not set");
-        return AggregatorV3Interface(priceFeeds[symbol]).latestRoundData();
-    }
-
     function getLatestPriceAndTimestamp(string memory symbol) public view returns (
         int price,
         uint updatedAt

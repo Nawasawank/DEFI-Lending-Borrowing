@@ -19,7 +19,6 @@ module.exports = async function (callback) {
         const description = await priceConsumer.getDescription(symbol);
         const decimals = await priceConsumer.getDecimals(symbol);
 
-        // ✅ Use object destructuring here
         const { price: rawPrice, updatedAt } = await priceConsumer.getLatestPriceAndTimestamp(symbol);
         const priceInUSD = await priceConsumer.getPriceInUSD(symbol);
 
