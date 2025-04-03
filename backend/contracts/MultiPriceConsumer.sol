@@ -16,7 +16,7 @@ contract MultiPriceConsumer {
         priceFeeds["GHO"] = 0x635A86F9fdD16Ff09A0701C305D3a845F1758b8E;  
     }
 
-    function setPriceFeed(string memory symbol, address feedAddress) public {
+    function setPriceFeed(string memory symbol, address feedAddress) public  {
         priceFeeds[symbol] = feedAddress;
         emit PriceFeedUpdated(symbol, feedAddress);
     }
