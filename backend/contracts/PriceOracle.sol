@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {AggregatorV3Interface} from "@chainlink/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 
-contract MultiPriceConsumer {
+contract PriceOracle {
     mapping(string => address) public priceFeeds;
     
     event PriceFeedUpdated(string symbol, address feedAddress);

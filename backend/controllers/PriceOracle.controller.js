@@ -1,4 +1,4 @@
-const { MultiPriceContract } = require('../utils/web3');
+const { PriceOracleContract } = require('../utils/web3');
 
 const PriceController = {
   async getAllLatestPrices(req, res) {
@@ -7,7 +7,7 @@ const PriceController = {
 
       const results = {};
       for (const symbol of symbols) {
-        const price = await MultiPriceContract.methods.getLatestPrice(symbol).call();
+        const price = await PriceOracleContract.methods.getLatestPrice(symbol).call();
         results[symbol] = price.toString();
       }
 

@@ -1,8 +1,8 @@
-const MultiPriceConsumer = artifacts.require("MultiPriceConsumer");
+const PriceOracle = artifacts.require("PriceOracle");
 const MockV3Aggregator = artifacts.require("MockV3Aggregator");
 
-contract("MultiPriceConsumer", accounts => {
-  let multiPriceConsumer;
+contract("PriceOracle", accounts => {
+  let PriceOracle;
   let mockPriceFeeds = {};
   
   // Test constants
@@ -18,8 +18,8 @@ contract("MultiPriceConsumer", accounts => {
   const SYMBOLS = Object.keys(INITIAL_PRICES);
 
   before(async () => {
-    // Deploy MultiPriceConsumer contract
-    multiPriceConsumer = await MultiPriceConsumer.new();
+    // Deploy MPriceOracle contract
+    PriceOracle = await PriceOracle.new();
 
     // Deploy mock price feeds for each symbol
     for (const symbol of SYMBOLS) {
@@ -32,7 +32,7 @@ contract("MultiPriceConsumer", accounts => {
 
     // Set price feeds in the contract
     for (const symbol of SYMBOLS) {
-      await multiPriceConsumer.setPriceFeed(
+      await PriceOracle.setPriceFeed(
         symbol, 
         mockPriceFeeds[symbol].address
       );
@@ -42,7 +42,7 @@ contract("MultiPriceConsumer", accounts => {
   describe("Contract Initialization", () => {
     it("should have correct initial price feed addresses", async () => {
       for (const symbol of SYMBOLS) {
-        const storedAddress = await multiPriceConsumer.priceFeeds(symbol);
+        const storedAddress = await PriceOracle.priceFeeds(symbol);
         assert.equal(
           storedAddress, 
           mockPriceFeeds[symbol].address, 
@@ -60,7 +60,7 @@ contract("MultiPriceConsumer", accounts => {
         "Updated ETH / USD"
       );
 
-      const tx = await multiPriceConsumer.setPriceFeed("ETH", newMockFeed.address);
+      const tx = await PriceOracle.setPriceFeed("ETH", newMockFeed.address);
       
       assert.equal(tx.logs[0].event, "PriceFeedUpdated", "Event not emitted");
       assert.equal(tx.logs[0].args.symbol, "ETH", "Symbol in event is incorrect");
@@ -71,7 +71,7 @@ contract("MultiPriceConsumer", accounts => {
   describe("Price Data Retrieval", () => {
     beforeEach(async () => {
       for (const symbol of SYMBOLS) {
-        await multiPriceConsumer.setPriceFeed(
+        await PriceOracle.setPriceFeed(
           symbol, 
           mockPriceFeeds[symbol].address
         );
@@ -80,7 +80,7 @@ contract("MultiPriceConsumer", accounts => {
 
     it("should get the latest price for each token", async () => {
       for (const symbol of SYMBOLS) {
-        const price = await multiPriceConsumer.getLatestPrice(symbol);
+        const price = await PriceOracle.getLatestPrice(symbol);
         assert.equal(
           price.toString(), 
           INITIAL_PRICES[symbol].toString(), 
@@ -91,7 +91,7 @@ contract("MultiPriceConsumer", accounts => {
 
     it("should get the correct decimals for each token", async () => {
       for (const symbol of SYMBOLS) {
-        const decimals = await multiPriceConsumer.getDecimals(symbol);
+        const decimals = await PriceOracle.getDecimals(symbol);
         assert.equal(
           decimals.toString(), 
           DECIMALS.toString(), 
@@ -102,7 +102,7 @@ contract("MultiPriceConsumer", accounts => {
 
     it("should get the correct description for each token", async () => {
       for (const symbol of SYMBOLS) {
-        const description = await multiPriceConsumer.getDescription(symbol);
+        const description = await PriceOracle.getDescription(symbol);
         assert.equal(
           description, 
           `${symbol} / USD`, 
@@ -113,7 +113,7 @@ contract("MultiPriceConsumer", accounts => {
 
     it("should calculate correct USD prices", async () => {
       for (const symbol of SYMBOLS) {
-        const usdPrice = await multiPriceConsumer.getPriceInUSD(symbol);
+        const usdPrice = await PriceOracle.getPriceInUSD(symbol);
         const expectedPrice = Math.floor(INITIAL_PRICES[symbol] / (10 ** (DECIMALS - 2)));
         
         assert.equal(
@@ -128,7 +128,7 @@ contract("MultiPriceConsumer", accounts => {
   describe("Error Handling", () => {
     it("should revert when getting price for non-existent token", async () => {
       try {
-        await multiPriceConsumer.getLatestPrice("NONEXISTENT");
+        await PriceOracle.getLatestPrice("NONEXISTENT");
         assert.fail("Expected revert not received");
       } catch (error) {
         assert(
@@ -140,7 +140,7 @@ contract("MultiPriceConsumer", accounts => {
 
     it("should revert when getting decimals for non-existent token", async () => {
       try {
-        await multiPriceConsumer.getDecimals("NONEXISTENT");
+        await PriceOracle.getDecimals("NONEXISTENT");
         assert.fail("Expected revert not received");
       } catch (error) {
         assert(
@@ -160,10 +160,10 @@ contract("MultiPriceConsumer", accounts => {
       await mockPriceFeeds[symbol].updateAnswer(newPrice);
 
       // Ensure the price feed is set to the updated mock
-      await multiPriceConsumer.setPriceFeed(symbol, mockPriceFeeds[symbol].address);
+      await PriceOracle.setPriceFeed(symbol, mockPriceFeeds[symbol].address);
 
       // Get updated price
-      const updatedPrice = await multiPriceConsumer.getLatestPrice(symbol);
+      const updatedPrice = await PriceOracle.getLatestPrice(symbol);
       assert.equal(
         updatedPrice.toString(), 
         newPrice.toString(), 
@@ -175,7 +175,7 @@ contract("MultiPriceConsumer", accounts => {
   describe("Advanced Price Information", () => {
     it("should get latest timestamp", async () => {
       for (const symbol of SYMBOLS) {
-        const timestamp = await multiPriceConsumer.getLatestTimestamp(symbol);
+        const timestamp = await PriceOracle.getLatestTimestamp(symbol);
         assert(timestamp > 0, `Timestamp for ${symbol} should be valid`);
       }
     });
@@ -185,9 +185,9 @@ contract("MultiPriceConsumer", accounts => {
       // Update price to new value
       const newPrice = 1200000000000; // $12,000
       await mockPriceFeeds[symbol].updateAnswer(newPrice);
-      await multiPriceConsumer.setPriceFeed(symbol, mockPriceFeeds[symbol].address);
+      await PriceOracle.setPriceFeed(symbol, mockPriceFeeds[symbol].address);
 
-      const priceTimeInfo = await multiPriceConsumer.getPriceTimeInfo(symbol);
+      const priceTimeInfo = await PriceOracle.getPriceTimeInfo(symbol);
       
       assert.equal(
         priceTimeInfo.price.toString(), 

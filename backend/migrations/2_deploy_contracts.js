@@ -1,14 +1,13 @@
-// migrations/3_deploy_real_price_consumer.js
-const MultiPriceConsumer = artifacts.require("MultiPriceConsumer");
+const PriceOracle = artifacts.require("PriceOracle");
 
 module.exports = async function(deployer, network, accounts) {
-  console.log(`Deploying MultiPriceConsumer to ${network}...`);
+  console.log(`Deploying PriceOracle to ${network}...`);
   
   // Deploy the contract
-  await deployer.deploy(MultiPriceConsumer);
-  const priceConsumer = await MultiPriceConsumer.deployed();
+  await deployer.deploy(PriceOracle);
+  const PriceOracle_deployed = await PriceOracle.deployed();
   
-  console.log(`MultiPriceConsumer deployed at: ${priceConsumer.address}`);
+  console.log(`PriceOracle deployed at: ${PriceOracle_deployed.address}`);
   
   // For Sepolia or mainnet, the constructor has already set up the price feeds
   if (network === "sepolia" || network === "mainnet") {

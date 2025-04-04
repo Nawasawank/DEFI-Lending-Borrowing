@@ -1,11 +1,11 @@
-const MultiPriceConsumer = artifacts.require("MultiPriceConsumer");
+const PriceOracle = artifacts.require("PriceOracle");
 
 module.exports = async function (callback) {
   try {
     console.log("\n===== Real Chainlink Price Data =====");
 
     // Get the deployed contract
-    const priceConsumer = await MultiPriceConsumer.deployed();
+    const priceConsumer = await PriceOracle.deployed();
     console.log(`Using contract at: ${priceConsumer.address}`);
 
     // Tokens to check
