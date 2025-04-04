@@ -1,21 +1,25 @@
 const { MultiPriceContract } = require('../utils/web3');
 
 const PriceController = {
-    async getLatestPrice(req, res) {
-        try {
-          const symbol = req.params.symbol.toUpperCase();
-          const price = await MultiPriceContract.methods.getLatestPrice(symbol).call();
-    
-          res.status(200).json({
-            message: `Price for ${symbol}`,
-            symbol,
-            price: price.toString() // ✅ convert BigInt to string
-          });
-        } catch (err) {
-          console.error('Error fetching price:', err);
-          res.status(500).json({ error: 'Failed to fetch price' });
-        }
+  async getAllLatestPrices(req, res) {
+    try {
+      const symbols = ['ETH', 'BTC', 'USDC', 'DAI', 'GHO'];
+
+      const results = {};
+      for (const symbol of symbols) {
+        const price = await MultiPriceContract.methods.getLatestPrice(symbol).call();
+        results[symbol] = price.toString();
       }
+
+      res.status(200).json({
+        message: 'All prices fetched successfully',
+        prices: results
+      });
+    } catch (err) {
+      console.error('Error fetching all prices:', err);
+      res.status(500).json({ error: 'Failed to fetch all prices' });
+    }
+  },
 };
 
 module.exports = PriceController;

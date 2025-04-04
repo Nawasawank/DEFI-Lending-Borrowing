@@ -6,6 +6,6 @@ const router = express.Router();
 
 //Price Coingecko API, External Price Oracle
 router.get('/coin-prices', CoinController.getPrices); //coingecko
-router.get('/price/:symbol', PriceController.getLatestPrice); //chainlink
+router.get('/chainlink-prices', PriceController.getAllLatestPrices); //chainlink
 
 module.exports = router;
