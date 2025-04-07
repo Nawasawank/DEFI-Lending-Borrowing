@@ -44,6 +44,60 @@ async function main() {
   await lendingPool.waitForDeployment();
   console.log("LendingPool deployed to:", lendingPool.target);
 
+  // 🔐 Config based on realistic, risk-adjusted parameters
+  const assetConfigs = {
+    WETH: {
+      supplyCap: ethers.parseEther("500000"),         // Large cap, very liquid
+      borrowCap: ethers.parseEther("300000"),
+      maxLTV: 82500,                                   // 82.5%
+      liquidationThreshold: 85000,                     // 85%
+      liquidationPenalty: 750                          // 7.5%
+    },
+    WBTC: {
+      supplyCap: ethers.parseEther("21000"),           // Scarce supply
+      borrowCap: ethers.parseEther("10000"),
+      maxLTV: 70000,                                   // 70% (more volatile than ETH)
+      liquidationThreshold: 75000,                     // 75%
+      liquidationPenalty: 1000                         // 10%
+    },
+    USDC: {
+      supplyCap: ethers.parseUnits("2000000"),     
+      borrowCap: ethers.parseUnits("1800000"),
+      maxLTV: 90000,                                   // 90% (very stable)
+      liquidationThreshold: 92500,                     // 92.5%
+      liquidationPenalty: 500                          // 5%
+    },
+    DAI: {
+      supplyCap: ethers.parseEther("1000000"),         // Stablecoin but algorithmic
+      borrowCap: ethers.parseEther("800000"),
+      maxLTV: 87500,                                   // 87.5%
+      liquidationThreshold: 90000,                     // 90%
+      liquidationPenalty: 500                          // 5%
+    },
+    GHO: {
+      supplyCap: ethers.parseEther("600000"),          // Newer stablecoin (Aave-native)
+      borrowCap: ethers.parseEther("300000"),
+      maxLTV: 70000,                                   // 70% (conservative)
+      liquidationThreshold: 75000,                     // 75%
+      liquidationPenalty: 1000                         // 10%
+    }
+  };
+
+  for (const symbol of Object.keys(tokens)) {
+    const cfg = assetConfigs[symbol];
+    const tokenAddress = tokens[symbol];
+    const tx = await lendingPool.setAssetConfig(
+      tokenAddress,
+      cfg.supplyCap,
+      cfg.borrowCap,
+      cfg.maxLTV,
+      cfg.liquidationThreshold,
+      cfg.liquidationPenalty
+    );
+    await tx.wait();
+    console.log(`✅ Configured ${symbol}`);
+  }
+
   console.log("\n🎉 All contracts deployed:");
   console.log("Deployer:", deployer.address);
   console.log("Tokens:");

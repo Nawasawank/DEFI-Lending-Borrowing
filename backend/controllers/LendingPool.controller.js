@@ -4,11 +4,11 @@ const { web3, LendingPoolContract, TokenABI, FaucetABI } = require('../utils/web
 const { isAddress } = require('web3-validator');
 
 const faucetMap = {
-  "0xEd53851d940de7b19de141D2659641739921a775": "0xeE02Fe82bFbE33eDD19CE15A8d96D16Fb7713987",
-  "0x5C1773fAD2472b261a45fE5080D25987b834FB41": "0x4019e7D63e8436f6ca3F4C160b4dd2ed487d5699", 
-  "0x06674888993A9674Bc40243fdA964231eCEF8666": "0x0309c0F347D357cE7A6138F1EdeCf90142E54c78", 
-  "0x251239a15e6BFB9DD5F7265DD3E06351c05a5528": "0x9B72bFE1Cb18aC66125bEBD626Bd890D55d30068", 
-  "0x0Ea2C78f8836d46bD4b15bEeab76154122aE8Ec6": "0x31369b71D9d36d7b7BF0d2Ac42baDF0810305b96"  
+  "0x205dC7D16c110ca71c0cBabca1Ec165e95f48ED7": "0x426aF8C92c24AC366A643E61C21EC02b22549CC1", // WETH
+  "0x90dfE955beee92Dab0AeF1872B315f8895F3EeE5": "0x9F34E7A20F935F8D8E73cB0b59b1e8dbC39E198c", // WBTC
+  "0x1A4AD281086D526ddC0Eb75E753AccE93EB5E6cf": "0x4f5DeaD96f62309e2829212f3137FCF6FcfC2B12", // USDC
+  "0x11aF28AD87DE999577D624187A734EbDCa419CD5": "0x78AF2e1f6A7ad84cc0dC3343BF31633576f479e7", // DAI
+  "0x3c5c1238b5B8409A7349B2A719f245972e965614": "0x0AD913da455E9C48FE2f4258554640359f0f23e2"  // GHO
 };
 
 function getTokenContract(assetAddress) {
@@ -128,7 +128,43 @@ const LendingController = {
     } catch (err) {
       return res.status(500).json({ error: 'Failed to fetch balance', details: err.message });
     }
+  },
+  async getAssetConfig(req, res) {
+    try {
+      const { assetAddress } = req.query;
+  
+      if (!isAddress(assetAddress))
+        return res.status(400).json({ error: 'Invalid token address' });
+  
+      const [
+        supplyCap,
+        borrowCap,
+        maxLTV,
+        liquidationThreshold,
+        liquidationPenalty
+      ] = await Promise.all([
+        LendingPoolContract.methods.supplyCap(assetAddress).call(),
+        LendingPoolContract.methods.borrowCap(assetAddress).call(),
+        LendingPoolContract.methods.maxLTV(assetAddress).call(),
+        LendingPoolContract.methods.liquidationThreshold(assetAddress).call(),
+        LendingPoolContract.methods.liquidationPenalty(assetAddress).call()
+      ]);
+  
+      return res.status(200).json({
+        asset: assetAddress,
+        config: {
+          supplyCap: ethers.formatUnits(supplyCap, DEFAULT_DECIMALS),
+          borrowCap: ethers.formatUnits(borrowCap, DEFAULT_DECIMALS),
+          maxLTV: (Number(maxLTV) / 1000).toFixed(2) + '%',
+          liquidationThreshold: (Number(liquidationThreshold) / 1000).toFixed(2) + '%',
+          liquidationPenalty: (Number(liquidationPenalty) / 1000).toFixed(2) + '%'
+        }
+      });
+    } catch (err) {
+      return res.status(500).json({ error: 'Failed to fetch asset config', details: err.message });
+    }
   }
+  
 };
 
 module.exports = LendingController;
