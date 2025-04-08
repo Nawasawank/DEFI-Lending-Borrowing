@@ -10,7 +10,7 @@ async function main() {
   const InterestRateModel = await ethers.getContractFactory("InterestRateModel"); 
   const LendingPool = await ethers.getContractFactory("LendingPool");
 
-  const initialSupply = ethers.parseEther("1000000");
+  const initialSupply = ethers.parseEther("100");
 
   const tokens = {};
   const faucets = {};

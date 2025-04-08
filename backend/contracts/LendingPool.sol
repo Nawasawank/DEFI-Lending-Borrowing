@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IInterestRateModel {
-    function getSupplyRate(address token, uint256 utilization) external view returns (uint256);
+    function getSupplyRate(uint256 utilization, address token) external view returns (uint256);
 }
 
 contract LendingPool is Ownable, ReentrancyGuard {
@@ -18,7 +18,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
     struct TokenState {
         uint256 totalShares;
         uint256 totalDeposits;
-        uint256 totalBorrows; // New field
+        uint256 totalBorrows;
         uint256 interestIndex;
         uint256 lastAccrueTime;
     }
@@ -26,8 +26,8 @@ contract LendingPool is Ownable, ReentrancyGuard {
     mapping(address => TokenState) public tokenState;
     mapping(address => mapping(address => DepositInfo)) public deposits;
     mapping(address => bool) public allowedTokens;
+    address[] public supportedTokens;
 
-    // Config
     mapping(address => uint256) public supplyCap;
     mapping(address => uint256) public borrowCap;
     mapping(address => uint256) public maxLTV;
@@ -46,6 +46,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
         interestModel = IInterestRateModel(_interestModel);
         for (uint256 i = 0; i < _allowedTokens.length; i++) {
             allowedTokens[_allowedTokens[i]] = true;
+            supportedTokens.push(_allowedTokens[i]);
             emit AllowedTokenAdded(_allowedTokens[i]);
         }
     }
@@ -58,21 +59,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
     function getUtilization(address token) public view returns (uint256) {
         TokenState storage t = tokenState[token];
         if (t.totalDeposits == 0) return 0;
-        return (5000 * 1e18) / t.totalDeposits;
-    }
-
-    function getSupplyRate(address token) public view returns (uint256) {
-        uint256 utilization = getUtilization(token);
-        uint256 supplyRate = interestModel.getSupplyRate(token, utilization);
-        return supplyRate;
-    } 
-
-    function getSupplyRateTest( uint256 utilization) public pure returns (uint256) {
-        uint256 borrowRate = 5000;
-        uint256 scaledUtilization = utilization * 1e4;  // scale utilization to handle decimals
-        uint256 scaledConstant = 5000;  // equivalent to 0.5 (scaled by 1e4)
-        
-        return (borrowRate * scaledUtilization * (1e4 - scaledConstant)) / 1e8;
+        return (t.totalBorrows * 1e4) / t.totalDeposits;
     }
 
     function accrueInterest(address token) public {
@@ -81,10 +68,10 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
         if (elapsed == 0 || t.totalDeposits == 0) return;
 
-        uint256 utilization = getUtilization(token); 
-        uint256 supplyRate = getSupplyRateTest(utilization);
+        uint256 utilization = getUtilization(token);
+        uint256 supplyRate = interestModel.getSupplyRate(utilization, token);
 
-        uint256 ratePerSecond = (supplyRate * 1e18) / (365 days * 10000);
+        uint256 ratePerSecond = (supplyRate * 1e18) / (365 days * 1e4);
         uint256 interestEarned = (t.totalDeposits * ratePerSecond * elapsed) / 1e18;
 
         t.totalDeposits += interestEarned;
@@ -98,7 +85,6 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
         TokenState storage t = tokenState[token];
         require(t.totalDeposits + amount <= supplyCap[token], "Exceeds supply cap");
-
         require(IERC20(token).transferFrom(msg.sender, address(this), amount), "Transfer failed");
 
         uint256 shares = (t.totalShares == 0 || t.totalDeposits == 0)
@@ -139,7 +125,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
     }
 
     function balanceOf(address token, address lender) external returns (uint256) {
-        accrueInterest(token); // Ensure interest is up to date
+        accrueInterest(token);
 
         TokenState storage t = tokenState[token];
         DepositInfo storage d = deposits[token][lender];
@@ -147,7 +133,6 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
         return (d.shares * t.totalDeposits) / t.totalShares;
     }
-
 
     function setAssetConfig(
         address token,
@@ -171,11 +156,41 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
     function addAllowedToken(address token) external onlyOwner {
         allowedTokens[token] = true;
+        supportedTokens.push(token);
         emit AllowedTokenAdded(token);
     }
 
     function removeAllowedToken(address token) external onlyOwner {
         allowedTokens[token] = false;
+        // Remove the token from supportedTokens
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            if (supportedTokens[i] == token) {
+                supportedTokens[i] = supportedTokens[supportedTokens.length - 1];
+                supportedTokens.pop();
+                break;
+            }
+        }
         emit AllowedTokenRemoved(token);
     }
+
+    function getAvailableLiquidity(address token) external view returns (uint256) {
+        TokenState storage t = tokenState[token];
+        if (t.totalDeposits < t.totalBorrows) {
+            return 0;
+        }
+        return t.totalDeposits - t.totalBorrows;
+    }
+
+    // function getTotalSupplied(address user) external view returns (uint256 totalSupplied) {
+    //     totalSupplied = 0;
+    //     for (uint256 i = 0; i < supportedTokens.length; i++) {
+    //         address token = supportedTokens[i];
+    //         TokenState storage t = tokenState[token];
+    //         DepositInfo storage depositinfo = deposits[token][user];
+
+    //         // Convert shares to actual balance
+    //         uint256 userBalance = (depositinfo.shares * t.totalDeposits) / t.totalShares;
+    //         totalSupplied += userBalance;
+    //     }
+    // }
 }

@@ -4,12 +4,13 @@ const { web3, LendingPoolContract, TokenABI, FaucetABI,InterestModel } = require
 const { isAddress } = require('web3-validator');
 
 const faucetMap = {
-  "0xaD5641D48FB5a4Ac7008138C50eD8C443D6a4014": "0x415B90448E30D0Ee2ab11887D8dB0caC32Ee4b79", // WETH
-  "0x99F3cf5fACFe240692981cBb344BE400c774Df7b": "0x1487BC42E2dE62BD6a0cD3f91B620a8757191b34", // WBTC
-  "0xE4D32700265f886283D5ddaFA9652B7c576E9825": "0x3bF522a2fA7B7A32Bbd66E6d4b0a7B0c683E6028", // USDC
-  "0xF969457b5124B73b919805E887744496eDE02763": "0x69a5D3BDbC29fb6161D9F78e2FC7116f2448525B", // DAI
-  "0x9400047516EE9C0Da71C00325f4144d85b9F496A": "0x96280Ac5EB0795F3bcd740EF0A1ec864fC6aCe69"  // GHO
+  "0x4c2E62C5CA71831C890319C408cBf7175fFd5e4C": "0x7E49Eb0dAE89235a13a46a1536D46cBcD312FAA1", // WETH
+  "0x81e6E6809F07e5689171325d9dF8e479AD5aBA8a": "0xADb888AB2D7acBAed215B0f8C46Fba628576A9D2", // WBTC
+  "0x42E990Dd43De1e6aD4aC791071184A96f0842025": "0xC531e1B9BBc4390179FC902FF1E020a077784F3B", // USDC
+  "0xC4fE726aeBEa29257e30c4746Aa93EEd8489971e": "0xEFEA93928b50E01f3392C18A8972f9370F7b611f", // DAI
+  "0x40dE9BDc40Fbf0617744dE293019b8bdD2d3782C": "0x5C0163Dc47173ed0f660302d54e9A2019484B608"  // GHO
 };
+
 
 
 function getTokenContract(assetAddress) {
@@ -268,7 +269,287 @@ const LendingController = {
         details: err.message
       });
     }
-  }  
+  },
+  async getAvailableLiquidity(req, res) {
+    try {
+      const { assetAddress } = req.query;
+  
+      if (!isAddress(assetAddress)) {
+        return res.status(400).json({ error: 'Invalid token address' });
+      }
+  
+      const tokenState = await LendingPoolContract.methods.tokenState(assetAddress).call();
+      const totalDeposits = BigInt(tokenState.totalDeposits);
+      const totalBorrows = BigInt(tokenState.totalBorrows);
+  
+      const available = totalDeposits > totalBorrows ? (totalDeposits - totalBorrows) : 0n;
+  
+      return res.status(200).json({
+        asset: assetAddress,
+        availableLiquidity: ethers.formatUnits(available.toString(), DEFAULT_DECIMALS),
+        raw: available.toString()
+      });
+  
+    } catch (err) {
+      return res.status(500).json({
+        error: 'Failed to fetch available liquidity',
+        details: err.message
+      });
+    }
+  },
+  async getUserTokenBalances(req, res) {
+    try {
+      const { userAddress } = req.query;
+  
+      if (!isAddress(userAddress)) {
+        return res.status(400).json({ error: "Invalid user address" });
+      }
+  
+      const results = [];
+  
+      for (const [tokenAddress, _faucet] of Object.entries(faucetMap)) {
+        const tokenContract = getTokenContract(tokenAddress);
+        const [symbol, decimals, balance] = await Promise.all([
+          tokenContract.methods.symbol().call(),
+          tokenContract.methods.decimals().call(),
+          tokenContract.methods.balanceOf(userAddress).call()
+        ]);
+  
+        results.push({
+          symbol,
+          tokenAddress,
+          balance: ethers.formatUnits(balance.toString(), Number(decimals)),
+          raw: balance.toString(),
+          decimals: Number(decimals)
+        });
+        
+      }
+  
+      return res.status(200).json({
+        user: userAddress,
+        balances: results
+      });
+  
+    } catch (err) {
+      return res.status(500).json({
+        error: "Failed to fetch token balances",
+        details: err.message
+      });
+    }
+  },
+  // async getTotalCollateralSupplied(req, res) {
+  //   const { userAddress } = req.query;
+
+  //   // Validate user address
+  //   if (!isAddress(userAddress)) {
+  //     return res.status(400).json({ error: "Invalid user address" });
+  //   }
+
+  //   try {
+  //     let supportedTokens;
+  //     // Try to get supported tokens from the contract if available
+  //     try {
+  //       supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+  //     } catch (tokensErr) {
+  //       console.warn("Could not fetch supported tokens, falling back to hardcoded list:", tokensErr.message);
+  //       supportedTokens = fallbackSupportedTokens;
+  //     }
+
+  //     // Combine CoinGecko IDs for API query
+  //     const coinGeckoIds = supportedTokens
+  //       .map((token) => tokenToCoingeckoId[token])
+  //       .filter((id) => !!id)
+  //       .join(',');
+
+  //     // Query CoinGecko for prices in USD
+  //     const cgResponse = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${coinGeckoIds}&vs_currencies=usd`);
+  //     const prices = await cgResponse.json();
+
+  //     let totalCollateralUSD = 0;
+  //     const assetDetails = [];
+
+  //     // Loop through each token in the supported list
+  //     for (const token of supportedTokens) {
+  //       try {
+  //         // Get the user's supplied collateral for this token:
+  //         // Calling the contract's balanceOf function. (Ensure this is a view function.)
+  //         const rawBalance = await LendingPoolContract.methods.balanceOf(token, userAddress).call();
+  //         // Format the token balance (assuming DEFAULT_DECIMALS; adjust if needed per asset)
+  //         const balanceFormatted = ethers.utils.formatUnits(rawBalance, DEFAULT_DECIMALS);
+  //         const balanceNumber = parseFloat(balanceFormatted);
+
+  //         // Look up the CoinGecko ID for the token
+  //         const cgId = tokenToCoingeckoId[token];
+  //         if (!cgId || !prices[cgId] || !prices[cgId].usd) {
+  //           console.warn(`Skipping token ${token} due to missing price data`);
+  //           continue;
+  //         }
+
+  //         const priceUSD = prices[cgId].usd; // Price in USD for 1 unit of the token
+  //         const collateralUSD = balanceNumber * priceUSD;
+  //         totalCollateralUSD += collateralUSD;
+
+  //         assetDetails.push({
+  //           tokenAddress: token,
+  //           symbol: '', // Optionally, fetch and add symbol info from the token contract if desired
+  //           balance: balanceFormatted,
+  //           priceUSD,
+  //           collateralUSD: collateralUSD.toFixed(2),
+  //           coingeckoId: cgId,
+  //         });
+  //       } catch (balanceErr) {
+  //         console.warn(`Error fetching balance for token ${token}: ${balanceErr.message}`);
+  //         // Continue to next token if one fails
+  //       }
+  //     }
+
+  //     return res.status(200).json({
+  //       user: userAddress,
+  //       totalCollateralUSD: totalCollateralUSD.toFixed(2),
+  //       assetDetails,
+  //     });
+  //   } catch (err) {
+  //     console.error("Error details:", err);
+  //     return res.status(500).json({
+  //       error: "Failed to fetch total collateral supplied in USD",
+  //       details: err.message
+  //     });
+  //   }
+  // },
+  async getSupplyAPY(req, res) {
+    try {
+      const { assetAddress } = req.query;
+  
+      if (!isAddress(assetAddress)) {
+        return res.status(400).json({ error: 'Invalid token address' });
+      }
+  
+      const utilization = await LendingPoolContract.methods.getUtilization(assetAddress).call();
+      const supplyAPY = await InterestModel.methods.getSupplyAPY(assetAddress, utilization).call();
+      
+      const apyPercentage = (Number(supplyAPY) / 100).toFixed(2);
+  
+      return res.status(200).json({
+        asset: assetAddress,
+        supplyAPY: apyPercentage + '%',
+        rawBasisPoints: supplyAPY.toString(),
+        utilization: (Number(utilization) / 100).toFixed(2) + '%'
+      });
+    } catch (err) {
+      return res.status(500).json({
+        error: 'Failed to fetch supply APY',
+        details: err.message
+      });
+    }
+  },
+  async getUserHistory(req, res) {
+    const { userAddress } = req.query;
+  
+    if (!isAddress(userAddress)) {
+      return res.status(400).json({ error: "Invalid user address" });
+    }
+  
+    try {
+      const depositEvents = await LendingPoolContract.getPastEvents("Deposit", {
+        filter: { lender: userAddress },
+        fromBlock: 0,
+        toBlock: "latest",
+      });
+  
+      const withdrawEvents = await LendingPoolContract.getPastEvents("Withdraw", {
+        filter: { lender: userAddress },
+        fromBlock: 0,
+        toBlock: "latest",
+      });
+  
+      const allEvents = [...depositEvents, ...withdrawEvents];
+  
+      const formatted = allEvents.map((e) => ({
+        type: e.event,
+        token: e.returnValues.token,
+        amount: String(ethers.formatUnits(e.returnValues.amount.toString(), 18)),
+        txHash: e.transactionHash,
+        blockNumber: String(e.blockNumber), // Convert to string immediately
+        timestamp: null,
+      }));
+  
+      const provider = new ethers.JsonRpcProvider(process.env.PROVIDER_URL);
+  
+      for (const tx of formatted) {
+        const block = await provider.getBlock(Number(tx.blockNumber)); 
+        tx.timestamp = block.timestamp.toString();
+      }
+  
+      // Sort using string comparison or convert back to numbers temporarily
+      formatted.sort((a, b) => Number(b.blockNumber) - Number(a.blockNumber));
+  
+      return res.status(200).json({
+        user: userAddress,
+        history: formatted,
+      });
+  
+    } catch (err) {
+      return res.status(500).json({
+        error: "Failed to fetch transaction history",
+        details: err.message,
+      });
+    }
+  },
+  async getAPRHistory(req, res) {
+    try {
+      const { assetAddress, timeframe } = req.query;
+  
+      if (!isAddress(assetAddress)) {
+        return res.status(400).json({ error: 'Invalid token address' });
+      }
+  
+      let dataPoints;
+      switch(timeframe) {
+        case '1m': dataPoints = 30; break;  
+        case '6m': dataPoints = 180; break; 
+        case '1y': dataPoints = 365; break; 
+        default: dataPoints = 30;          
+      }
+  
+      const [timestamps, rates] = await LendingPoolContract.methods
+        .getAPRHistory(assetAddress, dataPoints)
+        .call();
+  
+      const historyData = [];
+      let sum = 0;
+  
+      for (let i = 0; i < timestamps.length; i++) {
+        const aprValue = Number(rates[i]) / 100;
+        sum += aprValue;
+  
+        historyData.push({
+          timestamp: Number(timestamps[i]) * 1000, 
+          apr: aprValue
+        });
+      }
+  
+      const avgAPR = historyData.length > 0 ? sum / historyData.length : 0;
+  
+      const utilization = await LendingPoolContract.methods.getUtilization(assetAddress).call();
+      const currentAPY = await InterestModel.methods.getSupplyAPY(assetAddress, utilization).call();
+      const currentAPYPercentage = Number(currentAPY) / 100;
+  
+      return res.status(200).json({
+        asset: assetAddress,
+        timeframe,
+        averageAPR: avgAPR.toFixed(2),
+        currentAPR: currentAPYPercentage.toFixed(2),
+        history: historyData,
+        dataPoints: historyData.length
+      });
+  
+    } catch (err) {
+      return res.status(500).json({
+        error: 'Failed to fetch APR history',
+        details: err.message
+      });
+    }
+  },
 };
 
 module.exports = LendingController;
