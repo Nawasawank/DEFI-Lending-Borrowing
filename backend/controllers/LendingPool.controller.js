@@ -1,14 +1,14 @@
 require('dotenv').config();
 const { ethers } = require("ethers");
-const { web3, LendingPoolContract, TokenABI, FaucetABI } = require('../utils/web3.js');
+const { web3, LendingPoolContract, TokenABI, FaucetABI,InterestModel } = require('../utils/web3.js');
 const { isAddress } = require('web3-validator');
 
 const faucetMap = {
-  "0x205dC7D16c110ca71c0cBabca1Ec165e95f48ED7": "0x426aF8C92c24AC366A643E61C21EC02b22549CC1", // WETH
-  "0x90dfE955beee92Dab0AeF1872B315f8895F3EeE5": "0x9F34E7A20F935F8D8E73cB0b59b1e8dbC39E198c", // WBTC
-  "0x1A4AD281086D526ddC0Eb75E753AccE93EB5E6cf": "0x4f5DeaD96f62309e2829212f3137FCF6FcfC2B12", // USDC
-  "0x11aF28AD87DE999577D624187A734EbDCa419CD5": "0x78AF2e1f6A7ad84cc0dC3343BF31633576f479e7", // DAI
-  "0x3c5c1238b5B8409A7349B2A719f245972e965614": "0x0AD913da455E9C48FE2f4258554640359f0f23e2"  // GHO
+  "0x4dCDC6af8AD621B42447F9c0dC6867895E517768": "0xe977E49F245E6265D7947287a5182E883130C82B",
+  "0x9e461f11ea7AF0be5621cB5C4E63Fb34AAF9b50F": "0x5442828E5134A802320ED0b30357E24321bdb19a", 
+  "0x519068bC9235856c3A835dF58BA9d49107254027": "0x40a5972a126d4901EbE0B00Ef264755aD2261f80", 
+  "0xA032c3669911B94529df6f6b2b866c002Baa8267": "0x8403b55FfB7864F22666198281F460792018E5e1", 
+  "0x11d20e610512D39a881A9780B64338Eb977c1f84": "0x65A91ff68F751e7901DE597055fb365eED6Df1f2"  
 };
 
 function getTokenContract(assetAddress) {
@@ -29,7 +29,8 @@ const LendingController = {
       const amountInSmallestUnit = ethers.parseUnits(amount.toString(), DEFAULT_DECIMALS).toString();
       const tokenContract = getTokenContract(assetAddress);
       let tokenBalance = await tokenContract.methods.balanceOf(fromAddress).call();
-
+      console.log("This is toekn balance: ", tokenBalance);
+      
       const hasEnoughTokens = BigInt(tokenBalance) >= BigInt(amountInSmallestUnit);
       const canUseFaucet = !hasEnoughTokens && faucetMap[assetAddress] && BigInt(tokenBalance) === 0n;
       
@@ -163,8 +164,105 @@ const LendingController = {
     } catch (err) {
       return res.status(500).json({ error: 'Failed to fetch asset config', details: err.message });
     }
-  }
+  },
+  async withdraw(req, res) {
+    try {
+      const { fromAddress, assetAddress, amount } = req.body;
+
+      if (!isAddress(fromAddress) || !isAddress(assetAddress))
+        return res.status(400).json({ error: 'Invalid address' });
+
+      if (isNaN(amount) || Number(amount) <= 0)
+        return res.status(400).json({ error: 'Invalid amount' });
+
+      const amountInSmallestUnit = ethers.parseUnits(amount.toString(), DEFAULT_DECIMALS).toString();
+
+      const currentBalance = await LendingPoolContract.methods
+        .balanceOf(assetAddress, fromAddress)
+        .call();
+
+      if (BigInt(currentBalance) < BigInt(amountInSmallestUnit)) {
+        return res.status(400).json({
+          error: 'Insufficient LendingPool balance',
+          available: ethers.formatUnits(currentBalance, DEFAULT_DECIMALS),
+          required: amount
+        });
+      }
+      const gasEstimate = await LendingPoolContract.methods
+        .withdraw(assetAddress, amountInSmallestUnit)
+        .estimateGas({ from: fromAddress });
+
+      const tx = await LendingPoolContract.methods
+        .withdraw(assetAddress, amountInSmallestUnit)
+        .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5)});
+
+      return res.status(200).json({
+        message: 'Withdrawal successful',
+        transactionHash: tx.transactionHash,
+        withdrawnAmount: amount,
+        asset: assetAddress
+      });
+
+    } catch (err) {
+      return res.status(500).json({ error: 'Withdrawal failed', details: err.message });
+    }
+  },
   
+  async getTotalSupplied(req, res) {
+    const { assetAddress } = req.query;
+
+    if (!isAddress(assetAddress)) {
+      return res.status(400).json({ error: "Invalid token address" });
+    }
+  
+    try {
+      const [tokenState, supplyCap] = await Promise.all([
+        LendingPoolContract.methods.tokenState(assetAddress).call(),
+        LendingPoolContract.methods.supplyCap(assetAddress).call()
+      ]);
+  
+      const totalSupplied = ethers.formatUnits(tokenState.totalDeposits, DEFAULT_DECIMALS);
+      const maxSupply = ethers.formatUnits(supplyCap, DEFAULT_DECIMALS);
+  
+      const supplied = parseFloat(totalSupplied);
+      const cap = parseFloat(maxSupply);
+      const utilization = cap === 0 ? 0 : (supplied / cap) * 100;
+  
+      return res.status(200).json({
+        asset: assetAddress,
+        reserve: {
+          supplied: supplied.toFixed(2) + "M",
+          maxSupply: cap.toFixed(2) + "M",
+          utilizationRate: utilization.toFixed(2) + "%"
+        }
+      });
+    } catch (err) {
+      return res.status(500).json({
+        error: "Failed to fetch reserve status",
+        details: err.message
+      });
+    }
+  },
+  async getUtilizationRate(req, res) {
+    try {
+      const { asset } = req.query;
+      if (!isAddress(asset)) {
+        return res.status(400).json({ error: 'Invalid asset address' });
+      }
+  
+      const rate = await InterestModel.methods.getUtilizationRate(asset).call();
+  
+      const rateNum = Number(rate); 
+      return res.status(200).json({
+        asset,
+        utilizationRate: (rateNum / 100).toFixed(2) + '%',
+        rawBasisPoints: rate.toString()
+      });
+  
+    } catch (err) {
+      return res.status(500).json({ error: 'Failed to fetch utilization rate', details: err.message });
+    }
+  }  
 };
 
 module.exports = LendingController;

@@ -3,41 +3,126 @@ pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract LendingPool is Ownable {
-    mapping(address => mapping(address => uint256)) public deposits;
-    mapping(address => uint256) public totalDeposits;
+interface IInterestRateModel {
+    function getSupplyRate(address token, uint256 utilization) external view returns (uint256);
+    function getUtilizationRate(address token) external view returns (uint256);
+}
+
+contract LendingPool is Ownable, ReentrancyGuard {
+    struct DepositInfo {
+        uint256 shares;
+        uint256 lastUpdated;
+    }
+
+    struct TokenState {
+        uint256 totalShares;
+        uint256 totalDeposits;
+        uint256 interestIndex;
+        uint256 lastAccrueTime;
+    }
+
+    mapping(address => TokenState) public tokenState;
+    mapping(address => mapping(address => DepositInfo)) public deposits;
     mapping(address => bool) public allowedTokens;
 
-    // New mappings for asset config
+    // Config
     mapping(address => uint256) public supplyCap;
     mapping(address => uint256) public borrowCap;
     mapping(address => uint256) public maxLTV;
     mapping(address => uint256) public liquidationThreshold;
     mapping(address => uint256) public liquidationPenalty;
 
-    // Events
+    IInterestRateModel public interestModel;
+
     event Deposit(address indexed token, address indexed lender, uint256 amount);
     event Withdraw(address indexed token, address indexed lender, uint256 amount);
     event AllowedTokenAdded(address token);
     event AllowedTokenRemoved(address token);
     event AssetConfigSet(address token, uint256 supplyCap, uint256 borrowCap, uint256 maxLTV, uint256 liquidationThreshold, uint256 liquidationPenalty);
 
-    constructor(address[] memory _allowedTokens) Ownable(msg.sender) {
+    constructor(address[] memory _allowedTokens, address _interestModel) Ownable(msg.sender) {
+        interestModel = IInterestRateModel(_interestModel);
         for (uint256 i = 0; i < _allowedTokens.length; i++) {
             allowedTokens[_allowedTokens[i]] = true;
             emit AllowedTokenAdded(_allowedTokens[i]);
         }
     }
 
-    function addAllowedToken(address token) external onlyOwner {
-        allowedTokens[token] = true;
-        emit AllowedTokenAdded(token);
+    modifier onlyAllowed(address token) {
+        require(allowedTokens[token], "Token not allowed");
+        _;
     }
 
-    function removeAllowedToken(address token) external onlyOwner {
-        allowedTokens[token] = false;
-        emit AllowedTokenRemoved(token);
+    function accrueInterest(address token) public {
+        TokenState storage t = tokenState[token];
+        uint256 elapsed = block.timestamp - t.lastAccrueTime;
+
+        if (elapsed == 0 || t.totalDeposits == 0) return;
+
+        uint256 utilization = interestModel.getUtilizationRate(token);
+        uint256 supplyRate = interestModel.getSupplyRate(token, utilization); 
+
+        uint256 ratePerSecond = (supplyRate * 1e18) / (365 days * 10000); 
+        uint256 interestEarned = (t.totalDeposits * ratePerSecond * elapsed) / 1e18;
+
+        t.totalDeposits += interestEarned; 
+        t.lastAccrueTime = block.timestamp;
+    }
+
+    function deposit(address token, uint256 amount) external onlyAllowed(token) nonReentrant {
+        require(amount > 0, "Amount must be greater than zero");
+
+        accrueInterest(token);
+
+        TokenState storage t = tokenState[token];
+        require(t.totalDeposits + amount <= supplyCap[token], "Exceeds supply cap");
+
+        require(IERC20(token).transferFrom(msg.sender, address(this), amount), "Transfer failed");
+
+        uint256 shares = (t.totalShares == 0 || t.totalDeposits == 0)
+            ? amount
+            : (amount * t.totalShares) / t.totalDeposits;
+
+        deposits[token][msg.sender].shares += shares;
+        deposits[token][msg.sender].lastUpdated = block.timestamp;
+
+        t.totalShares += shares;
+        t.totalDeposits += amount;
+        if (t.interestIndex == 0) t.interestIndex = 1e18;
+        if (t.lastAccrueTime == 0) t.lastAccrueTime = block.timestamp;
+
+        emit Deposit(token, msg.sender, amount);
+    }
+
+    function withdraw(address token, uint256 amount) external onlyAllowed(token) nonReentrant {
+        require(amount > 0, "Amount must be greater than zero");
+
+        accrueInterest(token);
+
+        TokenState storage t = tokenState[token];
+        DepositInfo storage user = deposits[token][msg.sender];
+
+        uint256 userBalance = (user.shares * t.totalDeposits) / t.totalShares;
+        require(userBalance >= amount, "Insufficient balance");
+
+        uint256 shareAmount = (amount * t.totalShares) / t.totalDeposits;
+
+        user.shares -= shareAmount;
+        t.totalShares -= shareAmount;
+        t.totalDeposits -= amount;
+
+        require(IERC20(token).transfer(msg.sender, amount), "Transfer failed");
+
+        emit Withdraw(token, msg.sender, amount);
+    }
+
+    function balanceOf(address token, address lender) external view returns (uint256) {
+        TokenState storage t = tokenState[token];
+        DepositInfo storage d = deposits[token][lender];
+        if (t.totalShares == 0) return 0;
+        return (d.shares * t.totalDeposits) / t.totalShares;
     }
 
     function setAssetConfig(
@@ -60,33 +145,13 @@ contract LendingPool is Ownable {
         emit AssetConfigSet(token, _supplyCap, _borrowCap, _maxLTV, _liquidationThreshold, _liquidationPenalty);
     }
 
-    function deposit(address token, uint256 amount) external {
-        require(allowedTokens[token], "Token not allowed");
-        require(amount > 0, "Amount must be greater than zero");
-        require(totalDeposits[token] + amount <= supplyCap[token], "Exceeds supply cap");
-
-        require(IERC20(token).transferFrom(msg.sender, address(this), amount), "Transfer failed");
-
-        deposits[token][msg.sender] += amount;
-        totalDeposits[token] += amount;
-
-        emit Deposit(token, msg.sender, amount);
+    function addAllowedToken(address token) external onlyOwner {
+        allowedTokens[token] = true;
+        emit AllowedTokenAdded(token);
     }
 
-    function withdraw(address token, uint256 amount) external {
-        require(allowedTokens[token], "Token not allowed");
-        require(amount > 0, "Amount must be greater than zero");
-        require(deposits[token][msg.sender] >= amount, "Insufficient balance");
-
-        deposits[token][msg.sender] -= amount;
-        totalDeposits[token] -= amount;
-
-        require(IERC20(token).transfer(msg.sender, amount), "Transfer failed");
-
-        emit Withdraw(token, msg.sender, amount);
-    }
-
-    function balanceOf(address token, address lender) external view returns (uint256) {
-        return deposits[token][lender];
+    function removeAllowedToken(address token) external onlyOwner {
+        allowedTokens[token] = false;
+        emit AllowedTokenRemoved(token);
     }
 }

@@ -12,6 +12,11 @@ router.get('/chainlink-prices', PriceController.getAllLatestPrices); //chainlink
 router.post('/deposit', LendingController.deposit); //allow user to supply their tokens
 router.post('/balance', LendingController.getLenderBalance); //show user supply for each assets
 router.get('/asset-config', LendingController.getAssetConfig); //show maxLTV,capacity,liquidation threshold and penalty of each assets
+router.post('/withdraw', LendingController.withdraw); //user withdrawal their collateral
+router.get('/total-supplied', LendingController.getTotalSupplied); //get total supplied of each assets
+router.get('/utilization-rate', LendingController.getUtilizationRate); //get utilization rate of each assets
+
+
 
 
 module.exports = router;

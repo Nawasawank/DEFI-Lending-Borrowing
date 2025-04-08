@@ -6,11 +6,13 @@ const PriceOracleABI = require("../artifacts/contracts/PriceOracle.sol/PriceOrac
 const LendingPoolABI = require("../artifacts/contracts/LendingPool.sol/LendingPool.json");
 const TokenABI = require("../artifacts/contracts/Token.sol/Token.json");
 const FaucetABI = require("../artifacts/contracts/TokenFaucet.sol/TokenFaucet.json"); 
+const InterestRateABI = require("../artifacts/contracts/InterestRate.sol/InterestRateModel.json"); 
 
 // Get provider and contract addresses from environment variables
 const providerUrl = process.env.PROVIDER_URL || "http://127.0.0.1:7545";
 const priceContractAddress = process.env.PRICE_CONTRACT_ADDRESS;
 const lendingPoolAddress = process.env.LENDING_POOL_ADDRESS;
+const InterestRateAddress  = process.env.INTEREST_RATE_MODEL_ADDRESS;
 
 // Initialize Web3 instance - only once
 const web3 = new Web3(providerUrl);
@@ -25,10 +27,15 @@ const LendingPoolContract = new web3.eth.Contract(
   lendingPoolAddress
 );
 
+const InterestModel = new web3.eth.Contract(
+  InterestRateABI.abi, 
+  InterestRateAddress);
+
 module.exports = {
   web3,
   PriceOracleContract,
   LendingPoolContract,
   TokenABI,
-  FaucetABI
+  FaucetABI,
+  InterestModel
 };

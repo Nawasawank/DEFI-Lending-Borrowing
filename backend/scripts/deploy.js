@@ -6,6 +6,8 @@ async function main() {
 
   const Token = await ethers.getContractFactory("Token");
   const Faucet = await ethers.getContractFactory("TokenFaucet");
+
+  const InterestRateModel = await ethers.getContractFactory("InterestRateModel"); 
   const LendingPool = await ethers.getContractFactory("LendingPool");
 
   const initialSupply = ethers.parseEther("1000000");
@@ -40,47 +42,20 @@ async function main() {
     console.log(`Set ${symbol} faucet address in token contract`);
   }
 
-  const lendingPool = await LendingPool.deploy(tokenAddresses);
-  await lendingPool.waitForDeployment();
-  console.log("LendingPool deployed to:", lendingPool.target);
+  const interestRateModel = await InterestRateModel.deploy();
+  await interestRateModel.waitForDeployment();
+  console.log("✅ InterestRateModel deployed to:", interestRateModel.target);
 
-  // 🔐 Config based on realistic, risk-adjusted parameters
+  const lendingPool = await LendingPool.deploy(tokenAddresses, interestRateModel.target);
+  await lendingPool.waitForDeployment();
+  console.log("✅ LendingPool deployed to:", lendingPool.target);
+
   const assetConfigs = {
-    WETH: {
-      supplyCap: ethers.parseEther("500000"),         // Large cap, very liquid
-      borrowCap: ethers.parseEther("300000"),
-      maxLTV: 82500,                                   // 82.5%
-      liquidationThreshold: 85000,                     // 85%
-      liquidationPenalty: 750                          // 7.5%
-    },
-    WBTC: {
-      supplyCap: ethers.parseEther("21000"),           // Scarce supply
-      borrowCap: ethers.parseEther("10000"),
-      maxLTV: 70000,                                   // 70% (more volatile than ETH)
-      liquidationThreshold: 75000,                     // 75%
-      liquidationPenalty: 1000                         // 10%
-    },
-    USDC: {
-      supplyCap: ethers.parseUnits("2000000"),     
-      borrowCap: ethers.parseUnits("1800000"),
-      maxLTV: 90000,                                   // 90% (very stable)
-      liquidationThreshold: 92500,                     // 92.5%
-      liquidationPenalty: 500                          // 5%
-    },
-    DAI: {
-      supplyCap: ethers.parseEther("1000000"),         // Stablecoin but algorithmic
-      borrowCap: ethers.parseEther("800000"),
-      maxLTV: 87500,                                   // 87.5%
-      liquidationThreshold: 90000,                     // 90%
-      liquidationPenalty: 500                          // 5%
-    },
-    GHO: {
-      supplyCap: ethers.parseEther("600000"),          // Newer stablecoin (Aave-native)
-      borrowCap: ethers.parseEther("300000"),
-      maxLTV: 70000,                                   // 70% (conservative)
-      liquidationThreshold: 75000,                     // 75%
-      liquidationPenalty: 1000                         // 10%
-    }
+    WETH: { supplyCap: ethers.parseEther("500000"), borrowCap: ethers.parseEther("300000"), maxLTV: 82500, liquidationThreshold: 85000, liquidationPenalty: 750 },
+    WBTC: { supplyCap: ethers.parseEther("21000"), borrowCap: ethers.parseEther("10000"), maxLTV: 70000, liquidationThreshold: 75000, liquidationPenalty: 1000 },
+    USDC: { supplyCap: ethers.parseUnits("2000000"), borrowCap: ethers.parseUnits("1800000"), maxLTV: 90000, liquidationThreshold: 92500, liquidationPenalty: 500 },
+    DAI:  { supplyCap: ethers.parseEther("1000000"), borrowCap: ethers.parseEther("800000"), maxLTV: 87500, liquidationThreshold: 90000, liquidationPenalty: 500 },
+    GHO:  { supplyCap: ethers.parseEther("600000"), borrowCap: ethers.parseEther("300000"), maxLTV: 70000, liquidationThreshold: 75000, liquidationPenalty: 1000 }
   };
 
   for (const symbol of Object.keys(tokens)) {
@@ -98,6 +73,28 @@ async function main() {
     console.log(`✅ Configured ${symbol}`);
   }
 
+  const interestParams = {
+    baseRate: 200,        
+    slope1: 4000,         
+    slope2: 7500,         
+    kink: 8000,           
+    reserveFactor: 1000   
+  };
+
+  for (const symbol of Object.keys(tokens)) {
+    const tokenAddress = tokens[symbol];
+    const tx = await interestRateModel.setParams(
+      tokenAddress,
+      interestParams.baseRate,
+      interestParams.slope1,
+      interestParams.slope2,
+      interestParams.kink,
+      interestParams.reserveFactor
+    );
+    await tx.wait();
+    console.log(`✅ Set interest model for ${symbol}`);
+  }
+
   console.log("\n🎉 All contracts deployed:");
   console.log("Deployer:", deployer.address);
   console.log("Tokens:");
@@ -108,6 +105,7 @@ async function main() {
   for (const [symbol, address] of Object.entries(faucets)) {
     console.log(`  ${symbol}: ${address}`);
   }
+  console.log("InterestRateModel:", interestRateModel.target);
   console.log("LendingPool:", lendingPool.target);
 }
 
