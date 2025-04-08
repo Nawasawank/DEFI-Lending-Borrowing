@@ -4,11 +4,11 @@ const { web3, LendingPoolContract, TokenABI, FaucetABI,InterestModel } = require
 const { isAddress } = require('web3-validator');
 
 const faucetMap = {
-  "0x60723CBe618eF1dB8b04E7df198DedDd81ab8dB8": "0x33AA5c778212132027654AC63d1Bd43FC37e12FA", // WETH
-  "0xB28bdCA40b078035463e3e8B3EC1334c15F32642": "0x4dE92e9e4713AB3DA2DCe610f582ED6d086B33D4", // WBTC
-  "0x7052D353eE11aE53c828e72EdfD1Abc527B8Ba06": "0x52D51bcAE74D7f04d52c2eb397750D0C11Cdb13e", // USDC
-  "0xBC2e69ff1B82458400832b51A1Df92c5aebB7086": "0xB5a5ba8dA8eF496b469Ce820451030Ab87B4Ea26", // DAI
-  "0xB67EC2d66c41B3602B504C09ADf43e3377f274F8": "0xE70CBbc01631f72AB1c410f7DF19087fDf0FA832"  // GHO
+  "0xaD5641D48FB5a4Ac7008138C50eD8C443D6a4014": "0x415B90448E30D0Ee2ab11887D8dB0caC32Ee4b79", // WETH
+  "0x99F3cf5fACFe240692981cBb344BE400c774Df7b": "0x1487BC42E2dE62BD6a0cD3f91B620a8757191b34", // WBTC
+  "0xE4D32700265f886283D5ddaFA9652B7c576E9825": "0x3bF522a2fA7B7A32Bbd66E6d4b0a7B0c683E6028", // USDC
+  "0xF969457b5124B73b919805E887744496eDE02763": "0x69a5D3BDbC29fb6161D9F78e2FC7116f2448525B", // DAI
+  "0x9400047516EE9C0Da71C00325f4144d85b9F496A": "0x96280Ac5EB0795F3bcd740EF0A1ec864fC6aCe69"  // GHO
 };
 
 
@@ -247,21 +247,26 @@ const LendingController = {
   async getUtilizationRate(req, res) {
     try {
       const { asset } = req.query;
+  
       if (!isAddress(asset)) {
         return res.status(400).json({ error: 'Invalid asset address' });
       }
   
-      const rate = await InterestModel.methods.getUtilizationRate(asset).call();
+      // Call the method from LendingPool now instead of InterestModel
+      const rate = await LendingPoolContract.methods.getUtilization(asset).call();
+      const rateNum = Number(rate); // basis points
   
-      const rateNum = Number(rate); 
       return res.status(200).json({
         asset,
-        utilizationRate: (rateNum / 100).toFixed(2) + '%',
-        rawBasisPoints: rate.toString()
+        utilizationRate: (rateNum / 100).toFixed(2) + '%', // e.g. 37.56%
+        rawBasisPoints: rate.toString() // raw number like 3756
       });
   
     } catch (err) {
-      return res.status(500).json({ error: 'Failed to fetch utilization rate', details: err.message });
+      return res.status(500).json({
+        error: 'Failed to fetch utilization rate',
+        details: err.message
+      });
     }
   }  
 };

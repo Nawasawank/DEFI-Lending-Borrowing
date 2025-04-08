@@ -7,7 +7,6 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IInterestRateModel {
     function getSupplyRate(address token, uint256 utilization) external view returns (uint256);
-    function getUtilizationRate(address token) external view returns (uint256);
 }
 
 contract LendingPool is Ownable, ReentrancyGuard {
@@ -19,6 +18,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
     struct TokenState {
         uint256 totalShares;
         uint256 totalDeposits;
+        uint256 totalBorrows; // New field
         uint256 interestIndex;
         uint256 lastAccrueTime;
     }
@@ -55,19 +55,39 @@ contract LendingPool is Ownable, ReentrancyGuard {
         _;
     }
 
+    function getUtilization(address token) public view returns (uint256) {
+        TokenState storage t = tokenState[token];
+        if (t.totalDeposits == 0) return 0;
+        return (5000 * 1e18) / t.totalDeposits;
+    }
+
+    function getSupplyRate(address token) public view returns (uint256) {
+        uint256 utilization = getUtilization(token);
+        uint256 supplyRate = interestModel.getSupplyRate(token, utilization);
+        return supplyRate;
+    } 
+
+    function getSupplyRateTest( uint256 utilization) public pure returns (uint256) {
+        uint256 borrowRate = 5000;
+        uint256 scaledUtilization = utilization * 1e4;  // scale utilization to handle decimals
+        uint256 scaledConstant = 5000;  // equivalent to 0.5 (scaled by 1e4)
+        
+        return (borrowRate * scaledUtilization * (1e4 - scaledConstant)) / 1e8;
+    }
+
     function accrueInterest(address token) public {
         TokenState storage t = tokenState[token];
         uint256 elapsed = block.timestamp - t.lastAccrueTime;
 
         if (elapsed == 0 || t.totalDeposits == 0) return;
 
-        uint256 utilization = interestModel.getUtilizationRate(token);
-        uint256 supplyRate = interestModel.getSupplyRate(token, utilization); 
+        uint256 utilization = getUtilization(token); 
+        uint256 supplyRate = getSupplyRateTest(utilization);
 
-        uint256 ratePerSecond = (supplyRate * 1e18) / (365 days * 10000); 
+        uint256 ratePerSecond = (supplyRate * 1e18) / (365 days * 10000);
         uint256 interestEarned = (t.totalDeposits * ratePerSecond * elapsed) / 1e18;
 
-        t.totalDeposits += interestEarned; 
+        t.totalDeposits += interestEarned;
         t.lastAccrueTime = block.timestamp;
     }
 
@@ -118,12 +138,16 @@ contract LendingPool is Ownable, ReentrancyGuard {
         emit Withdraw(token, msg.sender, amount);
     }
 
-    function balanceOf(address token, address lender) external view returns (uint256) {
+    function balanceOf(address token, address lender) external returns (uint256) {
+        accrueInterest(token); // Ensure interest is up to date
+
         TokenState storage t = tokenState[token];
         DepositInfo storage d = deposits[token][lender];
         if (t.totalShares == 0) return 0;
+
         return (d.shares * t.totalDeposits) / t.totalShares;
     }
+
 
     function setAssetConfig(
         address token,
