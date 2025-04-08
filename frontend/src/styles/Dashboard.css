@@ -1,0 +1,13 @@
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-image: url('../pictures/Background.png');
+  align-items: center; /* Centers children horizontally */
+  justify-content: start; /* Aligns children at the start vertically */
+}
+
+
+
+
+

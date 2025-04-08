@@ -1,0 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap');
+
+.core-header {
+    display: flex;
+    align-items: left;
+    background-color:rgba(19, 19, 19, 0.3); /* Adjust the color to match your theme */
+    padding: 10px 360px;
+    border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+    color: white;
+    font-family: 'Ubuntu', sans-serif;
+    font-size: 36;
+    margin-top: 120px;
+    margin-left: 285px;
+
+}
+
+.ethereum-icon {
+    height: 54px;
+    width:54px ;
+    margin-right: 50px;
+    margin-top: 10px;
+    margin-left: -300px;
+}
+
+.header-content {
+    display: flex;
+    flex-direction: column;
+    
+}
+
+.header-title {
+    font-size: 30px;
+    font-weight: 700; /* Ubuntu bold weight */
+    margin-left: -30px;
+}
+
+.header-subtitle {
+    font-size: 17px;
+    font-weight: 400; /* Ubuntu regular weight */
+    margin-top: 0px;
+    margin-left: -100px;
+}
+
+  
