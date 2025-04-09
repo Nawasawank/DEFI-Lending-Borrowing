@@ -22,7 +22,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
         uint256 interestIndex;
         uint256 lastAccrueTime;
     }
-
+    
     mapping(address => TokenState) public tokenState;
     mapping(address => mapping(address => DepositInfo)) public deposits;
     mapping(address => bool) public allowedTokens;

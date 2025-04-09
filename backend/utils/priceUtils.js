@@ -106,12 +106,6 @@ async function getTotalCollateralUSD(userAddress) {
     };
   }
   
-  
-  
-  
-  
-  
-  
 
 module.exports = {
   fetchTokenPrices,
