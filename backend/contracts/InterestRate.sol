@@ -2,8 +2,6 @@
 pragma solidity ^0.8.13;
 
 contract InterestRateModel {
-
-    // Optional: full dynamic rate system (you already have this)
     struct InterestParams {
         uint256 baseRate;
         uint256 slope1;
@@ -34,7 +32,7 @@ contract InterestRateModel {
         }
     }
 
-    function getSupplyRate(uint256 utilization, address token) external view returns (uint256) {
+    function getSupplyRate(uint256 utilization, address token) public view returns (uint256) {
         uint256 borrowRate = getBorrowRate(token, utilization);
         InterestParams memory p = params[token];
 
@@ -48,7 +46,7 @@ contract InterestRateModel {
         uint256 n = 365;
         uint256 aprPerPeriod = aprScaled / n;
         
-        uint256 base = 1e18 + aprPerPeriod; // 1 + APR/n (scaled)
+        uint256 base = 1e18 + aprPerPeriod; 
         uint256 result = 1e18; 
         uint256 exponent = n;
         

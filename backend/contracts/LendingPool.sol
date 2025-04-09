@@ -134,6 +134,28 @@ contract LendingPool is Ownable, ReentrancyGuard {
         return (d.shares * t.totalDeposits) / t.totalShares;
     }
 
+    function getUserCollateral(address user) external view returns (
+        address[] memory tokens,
+        uint256[] memory balances
+    ) {
+        uint256 length = supportedTokens.length;
+        tokens = new address[](length);
+        balances = new uint256[](length);
+
+        for (uint256 i = 0; i < length; i++) {
+            address token = supportedTokens[i];
+            DepositInfo storage d = deposits[token][user];
+            TokenState storage t = tokenState[token];
+
+            uint256 userBalance = (t.totalShares == 0)
+                ? 0
+                : (d.shares * t.totalDeposits) / t.totalShares;
+
+            tokens[i] = token;
+            balances[i] = userBalance;
+        }
+    }
+
     function setAssetConfig(
         address token,
         uint256 _supplyCap,
@@ -193,4 +215,27 @@ contract LendingPool is Ownable, ReentrancyGuard {
     //         totalSupplied += userBalance;
     //     }
     // }
+    function getTotalSupplyAPY(address user) external view returns (uint256 totalAPY) {
+        uint256 totalValue = 0;
+        uint256 weightedAPY = 0;
+
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            address token = supportedTokens[i];
+            DepositInfo storage d = deposits[token][user];
+            TokenState storage t = tokenState[token];
+
+            if (t.totalShares == 0 || d.shares == 0 || t.totalDeposits == 0) continue;
+
+            uint256 userBalance = (d.shares * t.totalDeposits) / t.totalShares;
+            uint256 utilization = getUtilization(token);
+            uint256 apy = interestModel.getSupplyRate(utilization, token);
+
+            weightedAPY += userBalance * apy;
+            totalValue += userBalance;
+        }
+
+        if (totalValue == 0) return 0;
+        totalAPY = weightedAPY / totalValue;
+}
+
 }
