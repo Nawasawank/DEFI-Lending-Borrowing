@@ -3,7 +3,7 @@ const { ethers } = require("ethers");
 const { web3, LendingPoolContract, FaucetABI, InterestModel } = require('../utils/web3.js');
 const { isAddress } = require('web3-validator');
 const { getTokenContract } = require('../utils/tokenUtils.js');
-const { fetchTokenPrices,coingeckoMap,getTotalCollateralUSD } = require('../utils/priceUtils.js');
+const { fetchTokenPrices,coingeckoMap,getTotalCollateralUSD,getTotalBorrowedUSD } = require('../utils/priceUtils.js');
 
 const faucetMap = JSON.parse(process.env.FAUCET_MAP);
 const DEFAULT_DECIMALS = 18;
@@ -160,20 +160,23 @@ const LendingController = {
   
       const priceData = await fetchTokenPrices([coingeckoMap[symbol]]);
       const priceUSD = priceData[coingeckoMap[symbol]]?.usd;
-  
+
       if (!priceUSD) {
         return res.status(500).json({ error: 'Unable to fetch price for token' });
       }
   
       const { totalCollateralUSD } = await getTotalCollateralUSD(fromAddress);
   
-      const totalBorrowedUSD = 0;
+      const { totalBorrowedUSD } = await getTotalBorrowedUSD(symbol,assetAddress); 
+      console.log(totalBorrowedUSD);
+      
+      const borrowedUSD = parseFloat(totalBorrowedUSD);
   
       let maxWithdrawAmount;
-      if (totalBorrowedUSD === 0) {
+      if (borrowedUSD === 0) {
         maxWithdrawAmount = Number(ethers.formatUnits(currentBalance, DEFAULT_DECIMALS));
       } else {
-        const withdrawableUSD = totalCollateralUSD - totalBorrowedUSD;
+        const withdrawableUSD = totalCollateralUSD - borrowedUSD;
         const effectivePrice = priceUSD * (Number(liquidationThresholdBP) / 10000);
         maxWithdrawAmount = withdrawableUSD / effectivePrice;
       }
@@ -568,30 +571,51 @@ const LendingController = {
       }
   
       const tokenContract = getTokenContract(assetAddress);
-      const [symbol, decimals, liquidationThresholdBP] = await Promise.all([
+      const [symbol, decimalsRaw, liquidationThresholdBP] = await Promise.all([
         tokenContract.methods.symbol().call(),
         tokenContract.methods.decimals().call(),
         LendingPoolContract.methods.liquidationThreshold(assetAddress).call()
       ]);
+
+      console.log("🔍 Token Symbol:", symbol);
+      
+      const decimals = Number(decimalsRaw);
+  
+      if (!coingeckoMap[symbol]) {
+        return res.status(400).json({ error: `Symbol ${symbol} is not mapped to CoinGecko` });
+      }
   
       const priceData = await fetchTokenPrices([coingeckoMap[symbol]]);
       const priceUSD = priceData[coingeckoMap[symbol]]?.usd;
   
-      if (!priceUSD) {
-        return res.status(500).json({ error: 'Unable to fetch price for token' });
+      if (!priceUSD || isNaN(priceUSD)) {
+        return res.status(500).json({ error: 'Unable to fetch valid price for token' });
       }
   
       const { totalCollateralUSD } = await getTotalCollateralUSD(userAddress);
+      const { totalBorrowedUSD } = await getTotalBorrowedUSD(symbol,assetAddress); 
+      console.log(totalBorrowedUSD);
   
-      const totalBorrowedUSD = 0;
+      const borrowedUSD = parseFloat(totalBorrowedUSD);
+      const collateralUSD = parseFloat(totalCollateralUSD);
   
       let maxWithdrawAmount;
-      if (totalBorrowedUSD === 0) {
+  
+      if (borrowedUSD === 0) {
         maxWithdrawAmount = Number(ethers.formatUnits(currentBalance, decimals));
       } else {
-        const withdrawableUSD = totalCollateralUSD - totalBorrowedUSD;
+        const withdrawableUSD = collateralUSD - borrowedUSD;
         const effectivePrice = priceUSD * (Number(liquidationThresholdBP) / 10000);
+  
+        if (effectivePrice <= 0 || isNaN(effectivePrice)) {
+          return res.status(500).json({ error: 'Invalid effective price for withdrawal calculation' });
+        }
+  
         maxWithdrawAmount = withdrawableUSD / effectivePrice;
+  
+        if (maxWithdrawAmount < 0) {
+          maxWithdrawAmount = 0;
+        }
       }
   
       return res.status(200).json({
@@ -603,7 +627,7 @@ const LendingController = {
     } catch (err) {
       return res.status(500).json({ error: 'Failed to calculate max withdraw', details: err.message });
     }
-  }
+  }  
   
     
 };
