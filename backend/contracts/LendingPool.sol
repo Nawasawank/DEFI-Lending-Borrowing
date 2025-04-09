@@ -26,7 +26,10 @@ contract LendingPool is Ownable, ReentrancyGuard {
     mapping(address => TokenState) public tokenState;
     mapping(address => mapping(address => DepositInfo)) public deposits;
     mapping(address => bool) public allowedTokens;
+    mapping(address => mapping(address => uint256)) public borrows;
+
     address[] public supportedTokens;
+    
 
     mapping(address => uint256) public supplyCap;
     mapping(address => uint256) public borrowCap;
@@ -236,6 +239,23 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
         if (totalValue == 0) return 0;
         totalAPY = weightedAPY / totalValue;
-}
+    }
+    function getUserBorrow(address user) external view returns (
+        address[] memory tokens,
+        uint256[] memory amounts
+    ) {
+        uint256 length = supportedTokens.length;
+        tokens = new address[](length);
+        amounts = new uint256[](length);
+
+        for (uint256 i = 0; i < length; i++) {
+            address token = supportedTokens[i];
+            uint256 borrowed = borrows[token][user];
+
+            tokens[i] = token;
+            amounts[i] = borrowed;
+        }
+    }
+
 
 }

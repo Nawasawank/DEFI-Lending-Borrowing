@@ -167,7 +167,7 @@ const LendingController = {
   
       const { totalCollateralUSD } = await getTotalCollateralUSD(fromAddress);
   
-      const { totalBorrowedUSD } = await getTotalBorrowedUSD(symbol,assetAddress); 
+      const { totalBorrowedUSD } = await getTotalBorrowedUSD(fromAddress); 
       console.log(totalBorrowedUSD);
       
       const borrowedUSD = parseFloat(totalBorrowedUSD);
@@ -591,7 +591,7 @@ const LendingController = {
       }
   
       const { totalCollateralUSD } = await getTotalCollateralUSD(userAddress);
-      const { totalBorrowedUSD } = await getTotalBorrowedUSD(symbol,assetAddress); 
+      const { totalBorrowedUSD } = await getTotalBorrowedUSD(userAddress); 
       console.log(totalBorrowedUSD);
   
       const borrowedUSD = parseFloat(totalBorrowedUSD);
