@@ -167,10 +167,9 @@ const LendingController = {
   
       const { totalCollateralUSD } = await getTotalCollateralUSD(fromAddress);
   
-      const { totalBorrowedUSD } = await getTotalBorrowedUSD(fromAddress); 
+      const  { totalBorrowedUSD } = await getTotalBorrowedUSD(fromAddress); 
       console.log(totalBorrowedUSD);
       
-      const borrowedUSD = parseFloat(totalBorrowedUSD);
   
       let maxWithdrawAmount;
       if (borrowedUSD === 0) {
