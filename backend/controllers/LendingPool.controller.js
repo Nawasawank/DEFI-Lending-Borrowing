@@ -576,8 +576,6 @@ const LendingController = {
         tokenContract.methods.decimals().call(),
         LendingPoolContract.methods.liquidationThreshold(assetAddress).call()
       ]);
-
-      console.log("🔍 Token Symbol:", symbol);
       
       const decimals = Number(decimalsRaw);
   
