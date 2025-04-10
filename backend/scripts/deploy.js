@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 async function main() {
   const signers = await ethers.getSigners();
   const deployer = signers[0];
-  const testUsers = signers.slice(0);
+  // const testUsers = [signers[1]];
 
   console.log("🚀 Deploying contracts with the account:", deployer.address);
 
@@ -100,23 +100,23 @@ async function main() {
   }
 
   console.log("\n🧪 Simulating faucet claims for all users...");
-  for (const user of testUsers) {
-    for (const symbol of Object.keys(faucets)) {
-      const faucet = faucets[symbol];
-      const faucetContract = await ethers.getContractAt("TokenFaucet", faucet);
-      const faucetAsUser = faucetContract.connect(user);
+  // for (const user of testUsers) {
+  //   for (const symbol of Object.keys(faucets)) {
+  //     const faucet = faucets[symbol];
+  //     const faucetContract = await ethers.getContractAt("TokenFaucet", faucet);
+  //     const faucetAsUser = faucetContract.connect(user);
 
-      try {
-        const tx = await faucetAsUser.claimTokens();
-        await tx.wait();
-        console.log(`✅ ${symbol} claimed by ${user.address}`);
-      } catch (err) {
-        console.log(`⚠️ ${symbol} faucet already claimed by ${user.address} or failed`);
-      }
-    }
-  }
+  //     try {
+  //       const tx = await faucetAsUser.claimTokens();
+  //       await tx.wait();
+  //       console.log(`✅ ${symbol} claimed by ${user.address}`);
+  //     } catch (err) {
+  //       console.log(`⚠️ ${symbol} faucet already claimed by ${user.address} or failed`);
+  //     }
+  //   }
+  // }
 
-  console.log("\n🎉 All contracts deployed and all users claimed from faucets!");
+  // console.log("\n🎉 All contracts deployed and all users claimed from faucets!");
   console.log("Deployer:", deployer.address);
   console.log("Tokens:");
   for (const [symbol, token] of Object.entries(tokens)) {
