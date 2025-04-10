@@ -22,7 +22,9 @@ const CoinController = {
       console.error(`Failed to fetch coin prices: ${error.message}`);
       res.status(500).json({ error: 'Failed to fetch coin prices' });
     }
-  }
+
+  },
+  
 };
 
 module.exports = CoinController;
