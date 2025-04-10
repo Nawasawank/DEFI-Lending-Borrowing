@@ -10,10 +10,9 @@ contract Token is ERC20, Ownable {
     constructor(
         string memory name,
         string memory symbol,
-        address initialHolder,
         uint256 initialSupply
-    ) ERC20(name, symbol) Ownable(initialHolder) {
-        _mint(initialHolder, initialSupply);
+    ) ERC20(name, symbol) Ownable(msg.sender) {
+        _mint(msg.sender, initialSupply);
     }
 
     modifier onlyFaucet() {
