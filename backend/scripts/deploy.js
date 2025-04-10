@@ -109,6 +109,7 @@ async function main() {
       try {
         const tx = await faucetAsUser.claimTokens();
         await tx.wait();
+        console.log(`✅ ${symbol} claimed by ${user.address}`);
       } catch (err) {
         console.log(`⚠️ ${symbol} faucet already claimed by ${user.address} or failed`);
       }
