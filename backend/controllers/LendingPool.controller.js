@@ -168,7 +168,7 @@ const LendingController = {
       const { totalCollateralUSD } = await getTotalCollateralUSD(fromAddress);
   
       const  { totalBorrowedUSD } = await getTotalBorrowedUSD(fromAddress); 
-      console.log(totalBorrowedUSD);
+      // console.log(totalBorrowedUSD);
       
   
       let maxWithdrawAmount;
@@ -176,6 +176,7 @@ const LendingController = {
         maxWithdrawAmount = Number(ethers.formatUnits(currentBalance, DEFAULT_DECIMALS));
       } else {
         const withdrawableUSD = totalCollateralUSD - totalBorrowedUSD;
+        // console.log("withdrawable",withdrawableUSD);
         const effectivePrice = priceUSD * (Number(liquidationThresholdBP) / 10000);
         maxWithdrawAmount = withdrawableUSD / effectivePrice;
       }

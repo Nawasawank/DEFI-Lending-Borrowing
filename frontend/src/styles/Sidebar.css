@@ -1,0 +1,72 @@
+/* Sidebar.css */
+@import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;500;700&display=swap");
+
+.sidebar-container {
+  width: 260px;
+  height: 100vh;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 10; /* Make sure the sidebar is on top */
+}
+
+.sidebar {
+  width: 250px;
+  height: fit-content; /* Adjust height based on content or set a specific height */
+  margin-top: 10px; /* Adjust this to position the sidebar vertically */
+  margin-left: 10px; /* Keeps the sidebar on the left side of the viewport */
+  background-color: rgba(19, 19, 19, 0.3); /* Semi-transparent background */
+  color: white;
+  font-family: "Ubuntu", sans-serif;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  overflow-y: auto; /* Allows internal scrolling if content exceeds the sidebar height */
+}
+
+.sidebar ul {
+  padding: 20px;
+  color: white;
+}
+
+.sidebar li {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px;
+  text-align: center;
+}
+
+.sidebar li:hover {
+  background-color: #444;
+  border-radius: 15px;
+}
+
+.sidebar img {
+  width: 43px;
+  height: 43px;
+  margin-right: 20px;
+}
+
+.sidebar .account-title {
+  font-weight: bold;
+  padding: 10px;
+  color: #f1f1f1;
+  margin-left: 10px;
+}
+
+.sidebar .account-title:hover {
+  background-color: transparent;
+}
+
+.sidebar .user-box,
+.sidebar .switch-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  background-color: #98a4e6;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
+  border-radius: 15px;
+  width: 100%;
+  color: white;
+}

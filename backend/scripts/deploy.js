@@ -1,16 +1,18 @@
 const { ethers } = require("hardhat");
 
 async function main() {
-  const [deployer] = await ethers.getSigners();
+  const signers = await ethers.getSigners();
+  const deployer = signers[0];
+  // const testUsers = [signers[1]];
+
   console.log("🚀 Deploying contracts with the account:", deployer.address);
 
   const Token = await ethers.getContractFactory("Token");
   const Faucet = await ethers.getContractFactory("TokenFaucet");
-
   const InterestRateModel = await ethers.getContractFactory("InterestRateModel"); 
   const LendingPool = await ethers.getContractFactory("LendingPool");
 
-  const initialSupply = ethers.parseEther("100");
+  const initialSupply = ethers.parseEther("1000000");
 
   const tokens = {};
   const faucets = {};
@@ -24,27 +26,27 @@ async function main() {
 
   const tokenAddresses = [];
 
-  console.log("Deploying token contracts and faucets...");
+  console.log("\n🪙 Deploying token contracts and faucets...");
   for (const { name, symbol } of tokenMeta) {
     const token = await Token.deploy(name, symbol, deployer.address, initialSupply);
     await token.waitForDeployment();
-    console.log(`${symbol} deployed to:`, token.target);
-    tokens[symbol] = token.target;
+    console.log(`✅ ${symbol} deployed to: ${token.target}`);
+    tokens[symbol] = token;
     tokenAddresses.push(token.target);
 
     const faucet = await Faucet.deploy(token.target);
     await faucet.waitForDeployment();
-    console.log(`${symbol} Faucet deployed to:`, faucet.target);
-    faucets[symbol] = faucet.target;
+    console.log(`✅ ${symbol} Faucet deployed to: ${faucet.target}`);
+    faucets[symbol] = faucet;
 
     const tx = await token.setFaucet(faucet.target);
     await tx.wait();
-    console.log(`Set ${symbol} faucet address in token contract`);
+    console.log(`🔗 Set ${symbol} faucet address in token contract`);
   }
 
   const interestRateModel = await InterestRateModel.deploy();
   await interestRateModel.waitForDeployment();
-  console.log("✅ InterestRateModel deployed to:", interestRateModel.target);
+  console.log("\n✅ InterestRateModel deployed to:", interestRateModel.target);
 
   const lendingPool = await LendingPool.deploy(tokenAddresses, interestRateModel.target);
   await lendingPool.waitForDeployment();
@@ -58,9 +60,10 @@ async function main() {
     GHO:  { supplyCap: ethers.parseEther("600000"), borrowCap: ethers.parseEther("300000"), maxLTV: 70000, liquidationThreshold: 75000, liquidationPenalty: 1000 }
   };
 
+  console.log("⚙️ Setting asset configs...");
   for (const symbol of Object.keys(tokens)) {
     const cfg = assetConfigs[symbol];
-    const tokenAddress = tokens[symbol];
+    const tokenAddress = tokens[symbol].target;
     const tx = await lendingPool.setAssetConfig(
       tokenAddress,
       cfg.supplyCap,
@@ -81,8 +84,9 @@ async function main() {
     reserveFactor: 1000   
   };
 
+  console.log("\n📈 Setting interest rate model...");
   for (const symbol of Object.keys(tokens)) {
-    const tokenAddress = tokens[symbol];
+    const tokenAddress = tokens[symbol].target;
     const tx = await interestRateModel.setParams(
       tokenAddress,
       interestParams.baseRate,
@@ -95,15 +99,32 @@ async function main() {
     console.log(`✅ Set interest model for ${symbol}`);
   }
 
-  console.log("\n🎉 All contracts deployed:");
+  console.log("\n🧪 Simulating faucet claims for all users...");
+  // for (const user of testUsers) {
+  //   for (const symbol of Object.keys(faucets)) {
+  //     const faucet = faucets[symbol];
+  //     const faucetContract = await ethers.getContractAt("TokenFaucet", faucet);
+  //     const faucetAsUser = faucetContract.connect(user);
+
+  //     try {
+  //       const tx = await faucetAsUser.claimTokens();
+  //       await tx.wait();
+  //       console.log(`✅ ${symbol} claimed by ${user.address}`);
+  //     } catch (err) {
+  //       console.log(`⚠️ ${symbol} faucet already claimed by ${user.address} or failed`);
+  //     }
+  //   }
+  // }
+
+  // console.log("\n🎉 All contracts deployed and all users claimed from faucets!");
   console.log("Deployer:", deployer.address);
   console.log("Tokens:");
-  for (const [symbol, address] of Object.entries(tokens)) {
-    console.log(`  ${symbol}: ${address}`);
+  for (const [symbol, token] of Object.entries(tokens)) {
+    console.log(`  ${symbol}: ${token.target}`);
   }
   console.log("Faucets:");
-  for (const [symbol, address] of Object.entries(faucets)) {
-    console.log(`  ${symbol}: ${address}`);
+  for (const [symbol, faucet] of Object.entries(faucets)) {
+    console.log(`  ${symbol}: ${faucet.target}`);
   }
   console.log("InterestRateModel:", interestRateModel.target);
   console.log("LendingPool:", lendingPool.target);
