@@ -557,6 +557,7 @@ const LendingController = {
         return res.status(400).json({ error: 'Invalid address' });
       }
   
+      // 1. Get user balance from LendingPool
       const currentBalance = await LendingPoolContract.methods
         .balanceOf(assetAddress, userAddress)
         .call();
@@ -576,26 +577,27 @@ const LendingController = {
         tokenContract.methods.decimals().call(),
         LendingPoolContract.methods.liquidationThreshold(assetAddress).call()
       ]);
-      
-      const decimals = Number(decimalsRaw);
   
-      if (!coingeckoMap[symbol]) {
-        return res.status(400).json({ error: `Symbol ${symbol} is not mapped to CoinGecko` });
+      const decimals = Number(decimalsRaw);
+      const tokenKey = symbol.toUpperCase();
+  
+      if (!coingeckoMap[tokenKey]) {
+        return res.status(400).json({ error: `Symbol ${symbol} is not mapped to a price feed` });
       }
   
-      const priceData = await fetchTokenPrices([coingeckoMap[symbol]]);
-      const priceUSD = priceData[coingeckoMap[symbol]]?.usd;
+      const [priceData, collateral, borrow] = await Promise.all([
+        fetchTokenPrices([coingeckoMap[tokenKey]]),
+        getTotalCollateralUSD(userAddress),
+        getTotalBorrowedUSD(userAddress)
+      ]);
   
+      const priceUSD = priceData[coingeckoMap[tokenKey]]?.usd;
       if (!priceUSD || isNaN(priceUSD)) {
         return res.status(500).json({ error: 'Unable to fetch valid price for token' });
       }
   
-      const { totalCollateralUSD } = await getTotalCollateralUSD(userAddress);
-      const { totalBorrowedUSD } = await getTotalBorrowedUSD(userAddress); 
-      console.log(totalBorrowedUSD);
-  
-      const borrowedUSD = parseFloat(totalBorrowedUSD);
-      const collateralUSD = parseFloat(totalCollateralUSD);
+      const collateralUSD = parseFloat(collateral.totalCollateralUSD);
+      const borrowedUSD = parseFloat(borrow.totalBorrowedUSD);
   
       let maxWithdrawAmount;
   
@@ -610,23 +612,20 @@ const LendingController = {
         }
   
         maxWithdrawAmount = withdrawableUSD / effectivePrice;
-
-        console.log("withdrawableUSD:",withdrawableUSD );
-        console.log("effectivePrice:",effectivePrice );
-  
-        if (maxWithdrawAmount < 0) {
-          maxWithdrawAmount = 0;
-        }
+        if (maxWithdrawAmount < 0) maxWithdrawAmount = 0;
       }
   
       return res.status(200).json({
         user: userAddress,
         asset: assetAddress,
-        maxWithdraw: maxWithdrawAmount.toFixed(6),
+        maxWithdraw: maxWithdrawAmount.toFixed(6)
       });
   
     } catch (err) {
-      return res.status(500).json({ error: 'Failed to calculate max withdraw', details: err.message });
+      return res.status(500).json({
+        error: 'Failed to calculate max withdraw',
+        details: err.message
+      });
     }
   },  
   async borrow(req, res) {

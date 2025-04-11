@@ -4,22 +4,50 @@ const { getTokenContract } = require('../utils/tokenUtils.js');
 const { ethers } = require("ethers");
 
 const coingeckoMap = {
-  WETH: "ethereum",
-  WBTC: "bitcoin",
-  USDC: "usd-coin",
-  DAI:  "dai",
-  GHO:  "gho"
+  WETH: "WETH",
+  WBTC: "WBTC",
+  USDC: "USDC",
+  DAI:  "DAI",
+  GHO:  "GHO"
 };
 
-async function fetchTokenPrices(ids) {
+async function fetchTokenPrices(symbols) {
+  if (!symbols || symbols.length === 0) {
+    return {};
+  }
+
   try {
-    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd`;
-    const response = await axios.get(url);
-    return response.data;
+    const symbolParam = symbols.join(',').toUpperCase(); // CMC expects uppercase
+    const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbolParam}&convert=USD`;
+
+    const response = await axios.get(url, {
+      headers: {
+        'X-CMC_PRO_API_KEY': process.env.CMC_API_KEY
+      },
+      timeout: 5000,
+      validateStatus: (status) => status < 500 // reject only server errors
+    });
+
+    const data = response.data.data;
+    const result = {};
+
+    for (const symbol of symbols) {
+      const entry = data[symbol.toUpperCase()];
+      const price = entry?.quote?.USD?.price;
+      if (typeof price === 'number') {
+        result[symbol] = { usd: price };
+      } else {
+        console.warn(`⚠️ Price not found for ${symbol}`);
+      }
+    }
+
+    return result;
   } catch (err) {
-    throw new Error('Error fetching prices from CoinGecko: ' + err.message);
+    console.error("❌ CoinMarketCap API error:", err.message);
+    throw new Error("Error fetching prices from CoinMarketCap: " + err.message);
   }
 }
+
 async function getTotalCollateralUSD(userAddress) {
     const result = await LendingPoolContract.methods.getUserCollateral(userAddress).call();
     const tokenAddresses = result[0];
