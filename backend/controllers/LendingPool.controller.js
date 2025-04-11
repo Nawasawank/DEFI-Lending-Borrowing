@@ -625,7 +625,134 @@ const LendingController = {
     } catch (err) {
       return res.status(500).json({ error: 'Failed to calculate max withdraw', details: err.message });
     }
-  }  
+  },  
+  async borrow(req, res) {
+    try {
+        const { fromAddress, assetAddress, amount } = req.body;
+
+        if (!isAddress(fromAddress) || !isAddress(assetAddress)) {
+            return res.status(400).json({ error: "Invalid address" });
+        }
+
+        if (isNaN(amount) || Number(amount) <= 0) {
+            return res.status(400).json({ error: "Invalid amount" });
+        }
+
+        const amountInSmallestUnit = ethers.parseUnits(amount.toString(), DEFAULT_DECIMALS).toString();
+
+        const { totalCollateralUSD } = await getTotalCollateralUSD(fromAddress);
+        const { totalBorrowedUSD } = await getTotalBorrowedUSD(fromAddress);
+
+        const maxBorrowableUSD = totalCollateralUSD * 0.8 - totalBorrowedUSD; // Assuming 80% max LTV
+
+        // Fetch token symbol dynamically
+        const tokenContract = getTokenContract(assetAddress);
+        const symbol = await tokenContract.methods.symbol().call();
+        console.log("Token Symbol:", symbol);
+
+        // Check if the symbol exists in coingeckoMap
+        const coingeckoID = coingeckoMap[symbol];
+        if (!coingeckoID) {
+            return res.status(400).json({
+                error: `Token symbol ${symbol} is not mapped to CoinGecko`,
+                details: "Add the token to coingeckoMap with its corresponding CoinGecko ID.",
+            });
+        }
+
+        // Fetch price data
+        const priceData = await fetchTokenPrices([coingeckoID]);
+        console.log("Price Data:", priceData);
+
+        const priceUSD = priceData[coingeckoID]?.usd;
+        if (!priceUSD) {
+            return res.status(500).json({
+                error: `Unable to fetch price for token: ${assetAddress}`,
+                details: "Ensure the token is mapped correctly in coingeckoMap and the API is reachable.",
+            });
+        }
+
+        const maxBorrowableAmount = maxBorrowableUSD / priceUSD;
+
+        if (Number(amount) > maxBorrowableAmount) {
+            return res.status(400).json({
+                error: "Requested amount exceeds borrow limit",
+                maxBorrowable: maxBorrowableAmount.toFixed(6),
+            });
+        }
+
+        const gasEstimate = await LendingPoolContract.methods
+            .borrow(assetAddress, amountInSmallestUnit)
+            .estimateGas({ from: fromAddress });
+
+        const tx = await LendingPoolContract.methods
+            .borrow(assetAddress, amountInSmallestUnit)
+            .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5) });
+
+        return res.status(200).json({
+            message: "Borrow successful",
+            transactionHash: tx.transactionHash,
+            borrowedAmount: amount,
+            asset: assetAddress,
+        });
+    } catch (err) {
+        console.error("Borrow error:", err);
+        return res.status(500).json({ error: "Borrow failed", details: err.message });
+    }
+},
+
+  async repay(req, res) {
+    try {
+      const { fromAddress, assetAddress, amount } = req.body;
+
+      if (!isAddress(fromAddress) || !isAddress(assetAddress)) {
+        return res.status(400).json({ error: 'Invalid address' });
+      }
+
+      if (isNaN(amount) || Number(amount) <= 0) {
+        return res.status(400).json({ error: 'Invalid amount' });
+      }
+
+      const amountInSmallestUnit = ethers.parseUnits(amount.toString(), DEFAULT_DECIMALS).toString();
+      const tokenContract = getTokenContract(assetAddress);
+
+      const allowance = await tokenContract.methods
+        .allowance(fromAddress, LendingPoolContract.options.address)
+        .call();
+
+      if (BigInt(allowance) < BigInt(amountInSmallestUnit)) {
+        try {
+          const gasEstimate = await tokenContract.methods
+            .approve(LendingPoolContract.options.address, amountInSmallestUnit)
+            .estimateGas({ from: fromAddress });
+          await tokenContract.methods
+            .approve(LendingPoolContract.options.address, amountInSmallestUnit)
+            .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5) });
+        } catch (approveErr) {
+          return res.status(500).json({
+            error: 'Approval failed',
+            details: approveErr.message,
+          });
+        }
+      }
+
+      const gasEstimate = await LendingPoolContract.methods
+        .repay(assetAddress, amountInSmallestUnit)
+        .estimateGas({ from: fromAddress });
+
+      const tx = await LendingPoolContract.methods
+        .repay(assetAddress, amountInSmallestUnit)
+        .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5) });
+
+      return res.status(200).json({
+        message: 'Repayment successful',
+        transactionHash: tx.transactionHash,
+        repaidAmount: amount,
+        asset: assetAddress,
+      });
+    } catch (err) {
+      return res.status(500).json({ error: 'Repayment failed', details: err.message });
+    }
+  },
   
     
 };

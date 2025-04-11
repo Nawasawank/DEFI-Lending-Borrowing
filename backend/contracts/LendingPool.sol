@@ -25,11 +25,10 @@ contract LendingPool is Ownable, ReentrancyGuard {
     
     mapping(address => TokenState) public tokenState;
     mapping(address => mapping(address => DepositInfo)) public deposits;
-    mapping(address => bool) public allowedTokens;
     mapping(address => mapping(address => uint256)) public borrows;
 
+    mapping(address => bool) public allowedTokens;
     address[] public supportedTokens;
-    
 
     mapping(address => uint256) public supplyCap;
     mapping(address => uint256) public borrowCap;
@@ -41,6 +40,8 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
     event Deposit(address indexed token, address indexed lender, uint256 amount);
     event Withdraw(address indexed token, address indexed lender, uint256 amount);
+    event Borrow(address indexed token, address indexed borrower, uint256 amount);
+    event Repay(address indexed token, address indexed borrower, uint256 amount);
     event AllowedTokenAdded(address token);
     event AllowedTokenRemoved(address token);
     event AssetConfigSet(address token, uint256 supplyCap, uint256 borrowCap, uint256 maxLTV, uint256 liquidationThreshold, uint256 liquidationPenalty);
@@ -127,6 +128,98 @@ contract LendingPool is Ownable, ReentrancyGuard {
         emit Withdraw(token, msg.sender, amount);
     }
 
+    function getHealthFactor(address user) external view returns (uint256 healthFactor) {
+        uint256 totalCollateralValue = 0;
+        uint256 totalBorrowValue = 0;
+
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            address token = supportedTokens[i];
+            TokenState storage t = tokenState[token];
+            DepositInfo storage d = deposits[token][user];
+
+            if (t.totalShares > 0) {
+                uint256 userBalance = (d.shares * t.totalDeposits) / t.totalShares;
+                totalCollateralValue += (userBalance * liquidationThreshold[token]) / 1e4;
+            }
+
+            totalBorrowValue += borrows[token][user];
+        }
+
+        if (totalBorrowValue == 0) {
+            return type(uint256).max; // No borrows, health factor is infinite
+        }
+
+        healthFactor = (totalCollateralValue * 1e18) / totalBorrowValue;
+    }
+    function accrueBorrowInterest(address token) public {
+        TokenState storage t = tokenState[token];
+        uint256 elapsed = block.timestamp - t.lastAccrueTime;
+
+        if (elapsed == 0 || t.totalBorrows == 0) return;
+
+        uint256 utilization = getUtilization(token);
+        uint256 borrowRate = interestModel.getSupplyRate(utilization, token); // Assuming borrow rate is derived similarly
+
+        uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
+        uint256 interestAccrued = (t.totalBorrows * ratePerSecond * elapsed) / 1e18;
+
+        t.totalBorrows += interestAccrued;
+        t.lastAccrueTime = block.timestamp;
+    }
+
+    function repay(address token, uint256 amount) external onlyAllowed(token) nonReentrant {
+        require(amount > 0, "Amount must be greater than zero");
+
+        accrueBorrowInterest(token);
+
+        uint256 owed = borrows[token][msg.sender];
+        require(owed > 0, "Nothing to repay");
+
+        uint256 repayAmount = amount > owed ? owed : amount;
+
+        require(IERC20(token).transferFrom(msg.sender, address(this), repayAmount), "Transfer failed");
+
+        borrows[token][msg.sender] -= repayAmount;
+        tokenState[token].totalBorrows -= repayAmount;
+
+        emit Repay(token, msg.sender, repayAmount);
+    }
+    function borrow(address token, uint256 amount) external onlyAllowed(token) nonReentrant {
+        require(amount > 0, "Amount must be greater than zero");
+
+        accrueInterest(token);
+
+        TokenState storage t = tokenState[token];
+        require(t.totalDeposits - t.totalBorrows >= amount, "Not enough liquidity");
+        require(t.totalBorrows + amount <= borrowCap[token], "Exceeds borrow cap");
+
+        uint256 totalCollateralValue = 0;
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            address colToken = supportedTokens[i];
+            TokenState storage colState = tokenState[colToken];
+            DepositInfo storage colDeposit = deposits[colToken][msg.sender];
+
+            if (colState.totalShares == 0) continue;
+
+            uint256 balance = (colDeposit.shares * colState.totalDeposits) / colState.totalShares;
+            totalCollateralValue += balance;
+        }
+
+        uint256 maxBorrow = (totalCollateralValue * maxLTV[token]) / 1e4;
+        require(borrows[token][msg.sender] + amount <= maxBorrow, "Exceeds max LTV");
+
+        // Check user's health factor
+        uint256 healthFactor = this.getHealthFactor(msg.sender);
+        require(healthFactor > 0, "Health factor too low to borrow");
+
+        borrows[token][msg.sender] += amount;
+        t.totalBorrows += amount;
+
+        require(IERC20(token).transfer(msg.sender, amount), "Transfer failed");
+
+        emit Borrow(token, msg.sender, amount);
+    }
+
     function balanceOf(address token, address lender) external returns (uint256) {
         accrueInterest(token);
 
@@ -137,10 +230,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
         return (d.shares * t.totalDeposits) / t.totalShares;
     }
 
-    function getUserCollateral(address user) external view returns (
-        address[] memory tokens,
-        uint256[] memory balances
-    ) {
+    function getUserCollateral(address user) external view returns (address[] memory tokens, uint256[] memory balances) {
         uint256 length = supportedTokens.length;
         tokens = new address[](length);
         balances = new uint256[](length);
@@ -187,7 +277,6 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
     function removeAllowedToken(address token) external onlyOwner {
         allowedTokens[token] = false;
-        // Remove the token from supportedTokens
         for (uint256 i = 0; i < supportedTokens.length; i++) {
             if (supportedTokens[i] == token) {
                 supportedTokens[i] = supportedTokens[supportedTokens.length - 1];
@@ -218,6 +307,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
     //         totalSupplied += userBalance;
     //     }
     // }
+
     function getTotalSupplyAPY(address user) external view returns (uint256 totalAPY) {
         uint256 totalValue = 0;
         uint256 weightedAPY = 0;
@@ -240,22 +330,17 @@ contract LendingPool is Ownable, ReentrancyGuard {
         if (totalValue == 0) return 0;
         totalAPY = weightedAPY / totalValue;
     }
-    function getUserBorrow(address user) external view returns (
-        address[] memory tokens,
-        uint256[] memory amounts
-    ) {
+
+    function getUserBorrow(address user) external view returns (address[] memory tokens, uint256[] memory amounts) {
         uint256 length = supportedTokens.length;
         tokens = new address[](length);
         amounts = new uint256[](length);
 
         for (uint256 i = 0; i < length; i++) {
             address token = supportedTokens[i];
-            uint256 borrowed = borrows[token][user];
-
             tokens[i] = token;
-            amounts[i] = borrowed;
+            amounts[i] = borrows[token][user];
         }
     }
-
-
 }
+
