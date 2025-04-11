@@ -178,22 +178,17 @@ contract LendingPool is Ownable, ReentrancyGuard {
         uint256 repayAmount = amount > owed ? owed : amount;
 
         TokenState storage t = tokenState[token];
-        DepositInfo storage userDeposit = deposits[token][msg.sender];
 
-        uint256 userCollateral = (userDeposit.shares * t.totalDeposits) / t.totalShares;
-        require(userCollateral >= repayAmount, "Insufficient collateral to repay");
-
-        // Deduct from collateral
-        uint256 shareAmount = (repayAmount * t.totalShares) / t.totalDeposits;
-        userDeposit.shares -= shareAmount;
-        t.totalShares -= shareAmount;
-        t.totalDeposits -= repayAmount;
-
+        // Update borrower's debt
         borrows[token][msg.sender] -= repayAmount;
         t.totalBorrows -= repayAmount;
 
+        // Transfer repayment amount from borrower to contract
+        require(IERC20(token).transferFrom(msg.sender, address(this), repayAmount), "Transfer failed");
+
         emit Repay(token, msg.sender, repayAmount);
     }
+        
 
     function borrow(address token, uint256 amount) external onlyAllowed(token) nonReentrant {
         accrueInterest(token);
@@ -228,6 +223,28 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
         emit Borrow(token, msg.sender, amount);
     }
+
+
+    function repayBalanceOf(address token, address borrower) external returns (uint256) {
+        accrueBorrowInterest(token);
+
+        uint256 owed = borrows[token][borrower];
+        TokenState storage t = tokenState[token];
+
+        if (owed > 0) {
+            uint256 elapsed = block.timestamp - t.lastAccrueTime;
+            uint256 utilization = getUtilization(token);
+            uint256 borrowRate = interestModel.getSupplyRate(utilization, token); // Assuming borrow rate is derived similarly
+
+            uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
+            uint256 interestAccrued = (owed * ratePerSecond * elapsed) / 1e18;
+
+            owed += interestAccrued;
+        }
+
+        return owed;
+    }
+    
 
     function balanceOf(address token, address lender) external returns (uint256) {
         accrueInterest(token);

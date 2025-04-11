@@ -739,87 +739,114 @@ const LendingController = {
 
   async repay(req, res) {
     try {
-      const { fromAddress, assetAddress, amount } = req.body;
+        const { fromAddress, assetAddress, amount } = req.body;
 
-      if (!isAddress(fromAddress) || !isAddress(assetAddress)) {
-        return res.status(400).json({ error: 'Invalid address' });
-      }
-
-      if (isNaN(amount) || Number(amount) <= 0) {
-        return res.status(400).json({ error: 'Invalid amount' });
-      }
-
-      // Fetch the user's outstanding debt
-      const owed = await LendingPoolContract.methods
-        .getUserBorrow(fromAddress)
-        .call();
-
-      const tokenIndex = owed.tokens.indexOf(assetAddress);
-      if (tokenIndex === -1 || BigInt(owed.amounts[tokenIndex]) === 0n) {
-        return res.status(400).json({
-          error: 'Nothing to repay',
-          outstandingDebt: '0',
-        });
-      }
-
-      const outstandingDebt = owed.amounts[tokenIndex];
-      const amountInSmallestUnit = ethers.parseUnits(amount.toString(), DEFAULT_DECIMALS).toString();
-
-      const tokenContract = getTokenContract(assetAddress);
-
-      const allowance = await tokenContract.methods
-        .allowance(fromAddress, LendingPoolContract.options.address)
-        .call();
-
-      if (BigInt(allowance) < BigInt(amountInSmallestUnit)) {
-        try {
-          const gasEstimate = await tokenContract.methods
-            .approve(LendingPoolContract.options.address, amountInSmallestUnit)
-            .estimateGas({ from: fromAddress });
-          await tokenContract.methods
-            .approve(LendingPoolContract.options.address, amountInSmallestUnit)
-            .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5) });
-        } catch (approveErr) {
-          return res.status(500).json({
-            error: 'Approval failed',
-            details: approveErr.message,
-          });
+        if (!isAddress(fromAddress) || !isAddress(assetAddress)) {
+            return res.status(400).json({ error: 'Invalid address' });
         }
-      }
 
-      const gasEstimate = await LendingPoolContract.methods
-        .repay(assetAddress, amountInSmallestUnit)
-        .estimateGas({ from: fromAddress });
+        if (isNaN(amount) || Number(amount) <= 0) {
+            return res.status(400).json({ error: 'Invalid amount' });
+        }
 
-      const tx = await LendingPoolContract.methods
-        .repay(assetAddress, amountInSmallestUnit)
-        .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5) });
+        let owed;
+        try {
+            // Attempt to fetch repayable balance from the contract
+            owed = await LendingPoolContract.methods
+                .repayBalanceOf(assetAddress, fromAddress)
+                .call();
+        } catch (err) {
+            // Fallback: Calculate repayable balance manually if the function is unavailable
+            const borrows = await LendingPoolContract.methods
+                .getUserBorrow(fromAddress)
+                .call();
+            const tokenIndex = borrows.tokens.indexOf(assetAddress);
+            if (tokenIndex === -1 || BigInt(borrows.amounts[tokenIndex]) === 0n) {
+                return res.status(400).json({
+                    error: 'Nothing to repay',
+                    outstandingDebt: '0',
+                });
+            }
+            owed = borrows.amounts[tokenIndex];
+        }
 
-      const remainingDebt = BigInt(outstandingDebt) - BigInt(amountInSmallestUnit);
+        if (BigInt(owed) === 0n) {
+            return res.status(400).json({
+                error: 'Nothing to repay',
+                outstandingDebt: '0',
+            });
+        }
 
-      return res.status(200).json({
-        message: 'Repayment successful',
-        transactionHash: tx.transactionHash,
-        repaidAmount: amount,
-        remainingDebt: ethers.formatUnits(remainingDebt.toString(), DEFAULT_DECIMALS),
-        asset: assetAddress,
-      });
-    } catch (err) {
-      console.error("Repayment error:", err);
+        const amountInSmallestUnit = ethers.parseUnits(amount.toString(), DEFAULT_DECIMALS).toString();
 
-      if (err.data && err.data.message) {
-        return res.status(500).json({
-          error: 'Repayment failed',
-          details: err.data.message,
+        const tokenContract = getTokenContract(assetAddress);
+
+        const allowance = await tokenContract.methods
+            .allowance(fromAddress, LendingPoolContract.options.address)
+            .call();
+
+        if (BigInt(allowance) < BigInt(amountInSmallestUnit)) {
+            try {
+                const gasEstimate = await tokenContract.methods
+                    .approve(LendingPoolContract.options.address, amountInSmallestUnit)
+                    .estimateGas({ from: fromAddress });
+                await tokenContract.methods
+                    .approve(LendingPoolContract.options.address, amountInSmallestUnit)
+                    .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5) });
+            } catch (approveErr) {
+                return res.status(500).json({
+                    error: 'Approval failed',
+                    details: approveErr.message,
+                });
+            }
+        }
+
+        const gasEstimate = await LendingPoolContract.methods
+            .repay(assetAddress, amountInSmallestUnit)
+            .estimateGas({ from: fromAddress });
+
+        const tx = await LendingPoolContract.methods
+            .repay(assetAddress, amountInSmallestUnit)
+            .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5) });
+
+        // Calculate remaining debt dynamically after repayment
+        let remainingDebt;
+        try {
+            remainingDebt = await LendingPoolContract.methods
+                .repayBalanceOf(assetAddress, fromAddress)
+                .call();
+        } catch (err) {
+            // Fallback: Recalculate remaining debt manually
+            const borrows = await LendingPoolContract.methods
+                .getUserBorrow(fromAddress)
+                .call();
+            const tokenIndex = borrows.tokens.indexOf(assetAddress);
+            remainingDebt = tokenIndex !== -1 ? borrows.amounts[tokenIndex] : '0';
+        }
+
+        return res.status(200).json({
+            message: 'Repayment successful',
+            transactionHash: tx.transactionHash,
+            repaidAmount: amount,
+            remainingDebt: ethers.formatUnits(remainingDebt.toString(), DEFAULT_DECIMALS),
+            asset: assetAddress,
         });
-      }
+    } catch (err) {
+        console.error("Repayment error:", err);
 
-      return res.status(500).json({
-        error: 'Repayment failed',
-        details: err.message || 'Unknown error occurred during smart contract execution',
-      });
+        if (err.data && err.data.message) {
+            return res.status(500).json({
+                error: 'Repayment failed',
+                details: err.data.message,
+            });
+        }
+
+        return res.status(500).json({
+            error: 'Repayment failed',
+            details: err.message || 'Unknown error occurred during smart contract execution',
+        });
     }
-  },
+},
   
     
 };
