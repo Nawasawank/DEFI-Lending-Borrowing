@@ -610,6 +610,9 @@ const LendingController = {
         }
   
         maxWithdrawAmount = withdrawableUSD / effectivePrice;
+
+        console.log("withdrawableUSD:",withdrawableUSD );
+        console.log("effectivePrice:",effectivePrice );
   
         if (maxWithdrawAmount < 0) {
           maxWithdrawAmount = 0;
@@ -643,7 +646,41 @@ const LendingController = {
         const { totalCollateralUSD } = await getTotalCollateralUSD(fromAddress);
         const { totalBorrowedUSD } = await getTotalBorrowedUSD(fromAddress);
 
-        const maxBorrowableUSD = totalCollateralUSD * 0.8 - totalBorrowedUSD; // Assuming 80% max LTV
+        let maxBorrowableUSD = 0;
+        
+
+        const result = await LendingPoolContract.methods.getUserCollateral(fromAddress).call();
+        const tokenAddresses = result[0];
+        const balances = result[1];
+
+        for (let i = 0; i < tokenAddresses.length; i++) {
+            const tokenAddress = tokenAddresses[i];
+            const rawBalance = balances[i];
+            if (rawBalance === "0") continue;
+
+            const tokenContract = getTokenContract(tokenAddress);
+            const [symbol, decimals, maxLTVBP] = await Promise.all([
+          tokenContract.methods.symbol().call(),
+          tokenContract.methods.decimals().call(),
+          LendingPoolContract.methods.maxLTV(tokenAddress).call()
+            ]);
+
+            const userBalance = parseFloat(
+          ethers.formatUnits(rawBalance.toString(), Number(decimals))
+            );
+
+            const cgID = coingeckoMap[symbol];
+            if (!cgID) continue;
+
+            const priceData = await fetchTokenPrices([cgID]);
+            const priceUSD = priceData[cgID]?.usd;
+
+            if (priceUSD) {
+          const maxLTV = Number(maxLTVBP) / 10000; // Convert basis points to percentage
+          maxBorrowableUSD += userBalance * priceUSD * maxLTV;
+            }
+        }
+        console.log("Initial maxBorrowableUSD:", maxBorrowableUSD);
 
         // Fetch token symbol dynamically
         const tokenContract = getTokenContract(assetAddress);
