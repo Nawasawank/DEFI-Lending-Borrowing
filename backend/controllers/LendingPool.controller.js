@@ -795,10 +795,13 @@ const LendingController = {
         .repay(assetAddress, amountInSmallestUnit)
         .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5) });
 
+      const remainingDebt = BigInt(outstandingDebt) - BigInt(amountInSmallestUnit);
+
       return res.status(200).json({
         message: 'Repayment successful',
         transactionHash: tx.transactionHash,
         repaidAmount: amount,
+        remainingDebt: ethers.formatUnits(remainingDebt.toString(), DEFAULT_DECIMALS),
         asset: assetAddress,
       });
     } catch (err) {
