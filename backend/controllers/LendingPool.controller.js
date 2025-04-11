@@ -682,6 +682,7 @@ const LendingController = {
         }
         console.log("Initial maxBorrowableUSD:", maxBorrowableUSD);
 
+
         // Fetch token symbol dynamically
         const tokenContract = getTokenContract(assetAddress);
         const symbol = await tokenContract.methods.symbol().call();
@@ -749,7 +750,22 @@ const LendingController = {
         return res.status(400).json({ error: 'Invalid amount' });
       }
 
+      // Fetch the user's outstanding debt
+      const owed = await LendingPoolContract.methods
+        .getUserBorrow(fromAddress)
+        .call();
+
+      const tokenIndex = owed.tokens.indexOf(assetAddress);
+      if (tokenIndex === -1 || BigInt(owed.amounts[tokenIndex]) === 0n) {
+        return res.status(400).json({
+          error: 'Nothing to repay',
+          outstandingDebt: '0',
+        });
+      }
+
+      const outstandingDebt = owed.amounts[tokenIndex];
       const amountInSmallestUnit = ethers.parseUnits(amount.toString(), DEFAULT_DECIMALS).toString();
+
       const tokenContract = getTokenContract(assetAddress);
 
       const allowance = await tokenContract.methods
@@ -787,7 +803,19 @@ const LendingController = {
         asset: assetAddress,
       });
     } catch (err) {
-      return res.status(500).json({ error: 'Repayment failed', details: err.message });
+      console.error("Repayment error:", err);
+
+      if (err.data && err.data.message) {
+        return res.status(500).json({
+          error: 'Repayment failed',
+          details: err.data.message,
+        });
+      }
+
+      return res.status(500).json({
+        error: 'Repayment failed',
+        details: err.message || 'Unknown error occurred during smart contract execution',
+      });
     }
   },
   
