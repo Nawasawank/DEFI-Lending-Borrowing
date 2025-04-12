@@ -39,6 +39,8 @@ contract InterestRateModel {
         return (borrowRate * utilization * (1e4 - p.reserveFactor)) / 1e8;
     }
 
+    
+
     function getSupplyAPY(address token, uint256 utilization) public view returns (uint256) {
         uint256 apr = this.getSupplyRate(utilization, token);
         uint256 aprScaled = apr * 1e14;
