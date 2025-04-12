@@ -266,6 +266,16 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
         return owed;
     }
+
+    // function repayBalanceOf(address token, address borrower) external returns (uint256) {
+    //    accrueBorrowInterest(token);
+
+    //    TokenState storage t = tokenState[token];
+    //    return borrows[token][borrower] > 0
+    //        ? borrows[token][borrower] + ((borrows[token][borrower] * ((interestModel.getBorrowRate(getUtilization(token), token) * 1e18) / (365 days * 1e4)) * (block.timestamp - t.lastAccrueTime)) / 1e18)
+    //        : 0;
+    //}
+
     
 
     function balanceOf(address token, address lender) external returns (uint256) {
