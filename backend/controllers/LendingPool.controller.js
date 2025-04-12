@@ -739,142 +739,133 @@ const LendingController = {
 
 async repay(req, res) {
   try {
-      const { fromAddress, assetAddress, amount } = req.body;
+    console.log("[Repay] Request received:", req.body);
 
-      console.log(`[Repay] Request from ${fromAddress} for ${amount} of ${assetAddress}`);
+    const { fromAddress, assetAddress, amount } = req.body;
 
-      if (!isAddress(fromAddress) || !isAddress(assetAddress)) {
-          console.warn("[Repay] Invalid address provided");
-          return res.status(400).json({ error: 'Invalid address' });
+    if (!isAddress(fromAddress) || !isAddress(assetAddress)) {
+      console.log("[Repay] Invalid address:", { fromAddress, assetAddress });
+      return res.status(400).json({ error: 'Invalid address' });
+    }
+
+    if (isNaN(amount) || Number(amount) <= 0) {
+      console.log("[Repay] Invalid amount:", amount);
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+
+    // Fetch the user's outstanding debt, including interest
+    let owed;
+    try {
+      owed = await LendingPoolContract.methods
+        .repayBalanceOf(assetAddress, fromAddress)
+        .call();
+      console.log("[Repay] Outstanding debt fetched:", owed);
+    } catch (err) {
+      console.log("[Repay] Failed to fetch repayable balance, falling back to manual calculation:", err.message);
+      const borrows = await LendingPoolContract.methods
+        .getUserBorrow(fromAddress)
+        .call();
+      const tokenIndex = borrows.tokens.indexOf(assetAddress);
+      if (tokenIndex === -1 || BigInt(borrows.amounts[tokenIndex]) === 0n) {
+        console.log("[Repay] Nothing to repay for asset:", assetAddress);
+        return res.status(400).json({
+          error: 'Nothing to repay',
+          outstandingDebt: '0',
+        });
       }
+      owed = borrows.amounts[tokenIndex];
+    }
 
-      if (isNaN(amount) || Number(amount) <= 0) {
-          console.warn("[Repay] Invalid amount provided");
-          return res.status(400).json({ error: 'Invalid amount' });
-      }
+    if (BigInt(owed) === 0n) {
+      console.log("[Repay] No outstanding debt for asset:", assetAddress);
+      return res.status(400).json({
+        error: 'Nothing to repay',
+        outstandingDebt: '0',
+      });
+    }
 
-      let owed;
+    const amountInSmallestUnit = ethers.parseUnits(amount.toString(), DEFAULT_DECIMALS).toString();
+    console.log("[Repay] Amount in smallest unit:", amountInSmallestUnit);
+
+    const tokenContract = getTokenContract(assetAddress);
+
+    const allowance = await tokenContract.methods
+      .allowance(fromAddress, LendingPoolContract.options.address)
+      .call();
+    console.log("[Repay] Current allowance:", allowance);
+
+    if (BigInt(allowance) < BigInt(amountInSmallestUnit)) {
       try {
-          // Attempt to fetch repayable balance from the contract (with interest accrued)
-          console.log("[Repay] Calling repayBalanceOf...");
-          owed = await LendingPoolContract.methods
-              .repayBalanceOf(assetAddress, fromAddress)
-              .call();
-          console.log(`[Repay] repayBalanceOf returned: ${owed}`);
-      } catch (err) {
-          console.warn("[Repay] repayBalanceOf failed, using getUserBorrow fallback");
-          const borrows = await LendingPoolContract.methods
-              .getUserBorrow(fromAddress)
-              .call();
-          const tokenIndex = borrows.tokens.indexOf(assetAddress);
-          if (tokenIndex === -1 || BigInt(borrows.amounts[tokenIndex]) === 0n) {
-              return res.status(400).json({
-                  error: 'Nothing to repay',
-                  outstandingDebt: '0',
-              });
-          }
-          owed = borrows.amounts[tokenIndex];
-      }
-
-      if (BigInt(owed) === 0n) {
-          console.log("[Repay] Owed amount is zero");
-          return res.status(400).json({
-              error: 'Nothing to repay',
-              outstandingDebt: '0',
-          });
-      }
-
-      // If owed doesn't include interest, calculate it manually based on elapsed time.
-      const amountInSmallestUnit = ethers.parseUnits(amount.toString(), DEFAULT_DECIMALS).toString();
-      console.log(`[Repay] Repay amount in smallest unit: ${amountInSmallestUnit}`);
-
-      const tokenContract = getTokenContract(assetAddress);
-
-      const allowance = await tokenContract.methods
-          .allowance(fromAddress, LendingPoolContract.options.address)
-          .call();
-
-      console.log(`[Repay] Current allowance: ${allowance}`);
-
-      if (BigInt(allowance) < BigInt(amountInSmallestUnit)) {
-          console.log("[Repay] Insufficient allowance, requesting approval...");
-          try {
-              const gasEstimate = await tokenContract.methods
-                  .approve(LendingPoolContract.options.address, amountInSmallestUnit)
-                  .estimateGas({ from: fromAddress });
-
-              console.log(`[Repay] Estimated gas for approval: ${gasEstimate}`);
-
-              await tokenContract.methods
-                  .approve(LendingPoolContract.options.address, amountInSmallestUnit)
-                  .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5) });
-
-              console.log("[Repay] Approval successful");
-          } catch (approveErr) {
-              console.error("[Repay] Approval failed:", approveErr);
-              return res.status(500).json({
-                  error: 'Approval failed',
-                  details: approveErr.message,
-              });
-          }
-      }
-
-      const gasEstimate = await LendingPoolContract.methods
-          .repay(assetAddress, amountInSmallestUnit)
+        console.log("[Repay] Insufficient allowance, attempting to approve...");
+        const gasEstimate = await tokenContract.methods
+          .approve(LendingPoolContract.options.address, amountInSmallestUnit)
           .estimateGas({ from: fromAddress });
-
-      console.log(`[Repay] Estimated gas for repayment: ${gasEstimate}`);
-
-      const tx = await LendingPoolContract.methods
-          .repay(assetAddress, amountInSmallestUnit)
+        await tokenContract.methods
+          .approve(LendingPoolContract.options.address, amountInSmallestUnit)
           .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5) });
-
-      console.log(`[Repay] Repayment successful, txHash: ${tx.transactionHash}`);
-
-      // Calculate remaining debt dynamically after repayment
-      let remainingDebt;
-      try {
-          console.log("[Repay] Fetching remaining debt...");
-          remainingDebt = await LendingPoolContract.methods
-              .repayBalanceOf(assetAddress, fromAddress)
-              .call();
-      } catch (err) {
-          console.warn("[Repay] repayBalanceOf failed after repayment, using fallback");
-          const borrows = await LendingPoolContract.methods
-              .getUserBorrow(fromAddress)
-              .call();
-          const tokenIndex = borrows.tokens.indexOf(assetAddress);
-          remainingDebt = tokenIndex !== -1 ? borrows.amounts[tokenIndex] : '0';
+        console.log("[Repay] Approval successful.");
+      } catch (approveErr) {
+        console.error("[Repay] Approval failed:", approveErr.message);
+        return res.status(500).json({
+          error: 'Approval failed',
+          details: approveErr.message,
+        });
       }
+    }
 
-      const remainingFormatted = ethers.formatUnits(remainingDebt.toString(), DEFAULT_DECIMALS);
-      console.log(`[Repay] Remaining debt: ${remainingFormatted}`);
+    console.log("[Repay] Attempting to repay...");
+    const gasEstimate = await LendingPoolContract.methods
+      .repay(assetAddress, amountInSmallestUnit)
+      .estimateGas({ from: fromAddress });
 
-      return res.status(200).json({
-          message: 'Repayment successful',
-          transactionHash: tx.transactionHash,
-          repaidAmount: amount,
-          remainingDebt: remainingFormatted,
-          asset: assetAddress,
-      });
+    const tx = await LendingPoolContract.methods
+      .repay(assetAddress, amountInSmallestUnit)
+      .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5) });
+    console.log("[Repay] Repayment transaction successful:", tx.transactionHash);
+
+    // Fetch the updated debt after repayment
+    let remainingDebt;
+    try {
+      remainingDebt = await LendingPoolContract.methods
+        .repayBalanceOf(assetAddress, fromAddress)
+        .call();
+      console.log("[Repay] Remaining debt fetched:", remainingDebt);
+    } catch (err) {
+      console.log("[Repay] Failed to fetch remaining debt, falling back to manual calculation:", err.message);
+      const borrows = await LendingPoolContract.methods
+        .getUserBorrow(fromAddress)
+        .call();
+      const tokenIndex = borrows.tokens.indexOf(assetAddress);
+      remainingDebt = tokenIndex !== -1 ? borrows.amounts[tokenIndex] : '0';
+    }
+
+    const remainingFormatted = ethers.formatUnits(remainingDebt.toString(), DEFAULT_DECIMALS);
+    console.log("[Repay] Remaining debt formatted:", remainingFormatted);
+
+    return res.status(200).json({
+      message: 'Repayment successful',
+      transactionHash: tx.transactionHash,
+      repaidAmount: amount,
+      remainingDebt: remainingFormatted,
+      asset: assetAddress,
+    });
   } catch (err) {
-      console.error("[Repay] Repayment error:", err);
+    console.error("[Repay] Repayment error:", err);
 
-      if (err.data && err.data.message) {
-          return res.status(500).json({
-              error: 'Repayment failed',
-              details: err.data.message,
-          });
-      }
-
+    if (err.data && err.data.message) {
       return res.status(500).json({
-          error: 'Repayment failed',
-          details: err.message || 'Unknown error occurred during smart contract execution',
+        error: 'Repayment failed',
+        details: err.data.message,
       });
-  }
-}
+    }
 
-,
+    return res.status(500).json({
+      error: 'Repayment failed',
+      details: err.message || 'Unknown error occurred during smart contract execution',
+    });
+  }
+},
+
   
     
 };

@@ -170,28 +170,46 @@ contract LendingPool is Ownable, ReentrancyGuard {
     function repay(address token, uint256 amount) external onlyAllowed(token) nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
 
+        // Accrue interest for the borrower's debt
         accrueBorrowInterest(token);
 
+        TokenState storage t = tokenState[token];
         uint256 owed = borrows[token][msg.sender];
+
         require(owed > 0, "Nothing to repay");
+
+        // Calculate interest dynamically for the borrower's debt
+        uint256 elapsed = block.timestamp - t.lastAccrueTime;
+        if (elapsed > 0) {
+            uint256 utilization = getUtilization(token);
+            uint256 borrowRate = interestModel.getSupplyRate(utilization, token); // Assuming borrow rate is derived similarly
+            uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
+            uint256 interestAccrued = (owed * ratePerSecond * elapsed) / 1e18;
+            owed += interestAccrued;
+        }
 
         uint256 repayAmount = amount > owed ? owed : amount;
 
-        TokenState storage t = tokenState[token];
+        // Deduct repayment amount from the user's collateral
+        DepositInfo storage userDeposit = deposits[token][msg.sender];
+        uint256 userCollateral = (userDeposit.shares * t.totalDeposits) / t.totalShares;
+        require(userCollateral >= repayAmount, "Insufficient collateral to repay");
+
+        uint256 sharesToDeduct = (repayAmount * t.totalShares) / t.totalDeposits;
+        userDeposit.shares -= sharesToDeduct;
+        t.totalShares -= sharesToDeduct;
+        t.totalDeposits -= repayAmount;
 
         // Update borrower's debt
-        borrows[token][msg.sender] -= repayAmount;
+        borrows[token][msg.sender] = owed - repayAmount;
         t.totalBorrows -= repayAmount;
-
-        // Transfer repayment amount from borrower to contract
-        require(IERC20(token).transferFrom(msg.sender, address(this), repayAmount), "Transfer failed");
 
         emit Repay(token, msg.sender, repayAmount);
     }
         
 
     function borrow(address token, uint256 amount) external onlyAllowed(token) nonReentrant {
-        accrueInterest(token);
+        accrueBorrowInterest(token);
 
         TokenState storage t = tokenState[token];
         require(t.totalDeposits - t.totalBorrows >= amount, "Not enough liquidity");
@@ -240,6 +258,9 @@ contract LendingPool is Ownable, ReentrancyGuard {
             uint256 interestAccrued = (owed * ratePerSecond * elapsed) / 1e18;
 
             owed += interestAccrued;
+
+            // Update the borrower's debt with the accrued interest
+            borrows[token][borrower] = owed;
         }
 
         return owed;
