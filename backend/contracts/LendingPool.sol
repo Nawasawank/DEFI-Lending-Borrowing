@@ -150,7 +150,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
             return type(uint256).max; // No borrows, health factor is infinite
         }
 
-        healthFactor = (totalCollateralValue * 1e18) / totalBorrowValue;
+        healthFactor = (totalCollateralValue * 1e17) / totalBorrowValue;
     }
     function accrueBorrowInterest(address token) public {
         TokenState storage t = tokenState[token];
