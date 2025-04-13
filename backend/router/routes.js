@@ -30,9 +30,11 @@ router.get('/totalAPY',LendingController.TotalAPY)
 
 router.get('/claimToken',LendingController.claimAllTokensForUser)
 router.get('/MaxWithdraw',LendingController.getMaxWithdrawable)
+router.get('/health-factor', LendingController.getHealthFactor)
 
 // Borrow and Repay routes
 router.post('/borrow', LendingController.borrow); // allow user to borrow tokens
 router.post('/repay', LendingController.repay); // allow user to repay borrowed tokens
+
 
 module.exports = router;

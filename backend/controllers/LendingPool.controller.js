@@ -349,43 +349,54 @@ const LendingController = {
   async getUserHistory(req, res) {
     const { userAddress } = req.query;
     if (!isAddress(userAddress)) {
-      return res.status(400).json({ error: "Invalid user address" });
+        return res.status(400).json({ error: "Invalid user address" });
     }
     try {
-      const depositEvents = await LendingPoolContract.getPastEvents("Deposit", {
-        filter: { lender: userAddress },
-        fromBlock: 0,
-        toBlock: "latest",
-      });
-      const withdrawEvents = await LendingPoolContract.getPastEvents("Withdraw", {
-        filter: { lender: userAddress },
-        fromBlock: 0,
-        toBlock: "latest",
-      });
-      const allEvents = [...depositEvents, ...withdrawEvents];
-      const formatted = allEvents.map((e) => ({
-        type: e.event,
-        token: e.returnValues.token,
-        amount: ethers.formatUnits(e.returnValues.amount.toString(), DEFAULT_DECIMALS),
-        txHash: e.transactionHash,
-        blockNumber: String(e.blockNumber),
-        timestamp: null,
-      }));
+        const depositEvents = await LendingPoolContract.getPastEvents("Deposit", {
+            filter: { lender: userAddress },
+            fromBlock: 0,
+            toBlock: "latest",
+        });
+        const withdrawEvents = await LendingPoolContract.getPastEvents("Withdraw", {
+            filter: { lender: userAddress },
+            fromBlock: 0,
+            toBlock: "latest",
+        });
+        const borrowEvents = await LendingPoolContract.getPastEvents("Borrow", {
+            filter: { borrower: userAddress },
+            fromBlock: 0,
+            toBlock: "latest",
+        });
+        const repayEvents = await LendingPoolContract.getPastEvents("Repay", {
+            filter: { borrower: userAddress },
+            fromBlock: 0,
+            toBlock: "latest",
+        });
 
-      const provider = new ethers.JsonRpcProvider(process.env.PROVIDER_URL);
-      for (const tx of formatted) {
-        const block = await provider.getBlock(Number(tx.blockNumber)); 
-        tx.timestamp = block.timestamp.toString();
-      }
-      formatted.sort((a, b) => Number(b.blockNumber) - Number(a.blockNumber));
-      return res.status(200).json({
-        user: userAddress,
-        history: formatted,
-      });
+        const allEvents = [...depositEvents, ...withdrawEvents, ...borrowEvents, ...repayEvents];
+        const formatted = allEvents.map((e) => ({
+            type: e.event,
+            token: e.returnValues.token,
+            amount: ethers.formatUnits(e.returnValues.amount.toString(), DEFAULT_DECIMALS),
+            txHash: e.transactionHash,
+            blockNumber: String(e.blockNumber),
+            timestamp: null,
+        }));
+
+        const provider = new ethers.JsonRpcProvider(process.env.PROVIDER_URL);
+        for (const tx of formatted) {
+            const block = await provider.getBlock(Number(tx.blockNumber));
+            tx.timestamp = block.timestamp.toString();
+        }
+        formatted.sort((a, b) => Number(b.blockNumber) - Number(a.blockNumber));
+        return res.status(200).json({
+            user: userAddress,
+            history: formatted,
+        });
     } catch (err) {
-      return res.status(500).json({ error: "Failed to fetch transaction history", details: err.message });
+        return res.status(500).json({ error: "Failed to fetch transaction history", details: err.message });
     }
-  },
+},
 
   async getLenderCollateral(req, res) {
     try {
@@ -866,6 +877,27 @@ async repay(req, res) {
   }
 },
 
+async getHealthFactor(req, res) {
+    try {
+        const { userAddress } = req.query;
+
+        if (!isAddress(userAddress)) {
+            return res.status(400).json({ error: 'Invalid user address' });
+        }
+
+        const healthFactor = await LendingPoolContract.methods.getHealthFactor(userAddress).call();
+        const formattedHealthFactor = healthFactor === "0"
+            ? "0" // Handle no borrow case
+            : ethers.formatUnits(healthFactor, 18); // Format as a human-readable number
+
+        return res.status(200).json({
+            user: userAddress,
+            healthFactor: formattedHealthFactor
+        });
+    } catch (err) {
+        return res.status(500).json({ error: 'Failed to fetch health factor', details: err.message });
+    }
+},
   
     
 };
