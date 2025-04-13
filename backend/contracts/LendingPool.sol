@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IInterestRateModel {
     function getSupplyRate(uint256 utilization, address token) external view returns (uint256);
-    function getBorrowRate(uint256 utilization, address token) external view returns (uint256);
+    // function getBorrowRate(uint256 utilization, address token) external view returns (uint256);
 }
 
 contract LendingPool is Ownable, ReentrancyGuard {
@@ -159,7 +159,8 @@ contract LendingPool is Ownable, ReentrancyGuard {
         if (elapsed == 0 || t.totalBorrows == 0) return;
 
         uint256 utilization = getUtilization(token);
-        uint256 borrowRate = interestModel.getBorrowRate(utilization, token); 
+        // uint256 borrowRate = interestModel.getBorrowRate(utilization, token);
+        uint256 borrowRate = interestModel.getSupplyRate(utilization, token); // Assuming borrow rate is derived similarly
 
         uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
         uint256 interestAccrued = (t.totalBorrows * ratePerSecond * elapsed) / 1e18;
@@ -183,6 +184,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
         uint256 elapsed = block.timestamp - t.lastAccrueTime;
         if (elapsed > 0) {
             uint256 utilization = getUtilization(token);
+            // uint256 borrowRate = interestModel.getBorrowRate(utilization, token);
             uint256 borrowRate = interestModel.getSupplyRate(utilization, token); // Assuming borrow rate is derived similarly
             uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
             uint256 interestAccrued = (owed * ratePerSecond * elapsed) / 1e18;
@@ -253,7 +255,8 @@ contract LendingPool is Ownable, ReentrancyGuard {
         if (owed > 0) {
             uint256 elapsed = block.timestamp - t.lastAccrueTime;
             uint256 utilization = getUtilization(token);
-            uint256 borrowRate = interestModel.getBorrowRate(utilization, token); // Assuming borrow rate is derived similarly
+            // uint256 borrowRate = interestModel.getSupplyRate(utilization, token);
+            uint256 borrowRate = interestModel.getSupplyRate(utilization, token); // Assuming borrow rate is derived similarly
 
             uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
             uint256 interestAccrued = (owed * ratePerSecond * elapsed) / 1e18;
