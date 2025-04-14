@@ -1,7 +1,7 @@
-import React from "react";
 import Header from "../components/Header";
 import "../styles/Market.css";
 import { ReactComponent as ExclamationMarkIcon } from "../pictures/exclamationmark.svg";
+import { Link } from "react-router-dom";
 
 function Market() {
   return (
@@ -48,9 +48,31 @@ function Market() {
               <td>0 M</td>
               <td>0 %</td>
               <td>
-                <button className="view-button">
-                  <ExclamationMarkIcon className="view-icon" />
-                </button>
+                <Link to="/marketdetail">
+                  <button className="view-button">
+                    <ExclamationMarkIcon className="view-icon" />
+                  </button>
+                </Link>
+              </td>
+            </tr>
+
+            <tr>
+              <td>
+                <div className="asset">
+                  <div className="asset-icon"></div>
+                  <span>name</span>
+                </div>
+              </td>
+              <td>0 M</td>
+              <td>0 %</td>
+              <td>0 M</td>
+              <td>0 %</td>
+              <td>
+                <Link to="/marketdetail">
+                  <button className="view-button">
+                    <ExclamationMarkIcon className="view-icon" />
+                  </button>
+                </Link>
               </td>
             </tr>
           </tbody>

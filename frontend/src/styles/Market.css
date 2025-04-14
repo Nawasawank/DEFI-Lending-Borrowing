@@ -36,7 +36,7 @@
 .market-table {
   width: 100%;
   table-layout: fixed;
-  border-collapse: collapse; /* changed from separate */
+  border-collapse: collapse;
 }
 
 .market-table th,
@@ -45,7 +45,7 @@
   text-align: center;
   justify-content: center;
   color: #5e7d8d;
-  font-size: 12px;
+  font-size: 14px;
   white-space: nowrap;
 }
 

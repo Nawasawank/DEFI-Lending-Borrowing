@@ -1,0 +1,78 @@
+@import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap");
+
+.market-header {
+  display: flex;
+  flex-direction: column;
+  background-color: rgba(19, 19, 19, 0.3); /* Semi-transparent background */
+  padding: 10px 20px; /* Adjust padding for the header */
+  border-radius: 15px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  color: white;
+  font-family: "Ubuntu", sans-serif;
+  font-size: 20px;
+  margin-top: 10px;
+  position: relative;
+}
+
+.asset {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.asset .asset-head {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+}
+
+.core-icon {
+  display: flex;
+  flex-direction: row;
+  background-color: white;
+  border-radius: 10px;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: bold;
+  color: #5e7d8d;
+  padding: 0px 10px;
+  height: 80%;
+}
+
+.core-icon .eth-icon {
+  width: 30px;
+  height: 30px;
+  background-color: white;
+  border-radius: 50%;
+}
+
+.asset-info-container {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 0px 10px;
+  height: 60px;
+}
+
+.asset-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: start;
+  gap: 5px 0px;
+  font-weight: bold;
+  white-space: nowrap;
+  color: #5e7d8d;
+  font-size: 14px;
+  background-color: rgba(255, 255, 255, 0.57);
+  padding: 10px;
+  border-radius: 8px; /* Rounded corners for each icon box */
+  box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.3);
+  width: 100%;
+}
+
+.asset-info p {
+  margin: 0px;
+}
