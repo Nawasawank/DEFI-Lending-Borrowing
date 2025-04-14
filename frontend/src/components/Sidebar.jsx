@@ -14,44 +14,41 @@ const Sidebar = () => {
     <div className="sidebar-container">
       <div className="sidebar">
         <ul>
-          {/* Dashboard */}
-          <li>
-            <img src={homeIcon} alt="Dashboard" className="w-6 h-6" />
-            <Link to="/dashboard">Dashboard</Link>
-          </li>
-
-          {/* Market */}
-          <li>
-            <img src={marketIcon} alt="Market" className="w-6 h-6" />
-            <Link to="/market">Market</Link>
-          </li>
-
-          {/* Risk Alert */}
-          <li>
-            <img src={alertIcon} alt="Risk Alert" className="w-6 h-6" />
-            <Link to="/risk-alert">Risk Alert</Link>
-          </li>
-
-          {/* Account Section */}
+          <Link to="/">
+            <li>
+              <img src={homeIcon} alt="Dashboard" className="w-6 h-6" />
+              Dashboard
+            </li>
+          </Link>
+          <Link to="/market">
+            <li>
+              <img src={marketIcon} alt="Market" className="w-6 h-6" />
+              Market
+            </li>
+          </Link>
+          <Link to="/risk-alert">
+            <li>
+              <img src={alertIcon} alt="Risk Alert" className="w-6 h-6" />
+              Risk Alert
+            </li>
+          </Link>
           <li className="account-title">Account Page</li>
-
-          {/* User Info */}
-          <li className="user-box">
-            <img src={userIcon} alt="User" className="w-8 h-8 rounded-full" />
-            <span>User xxxx</span>
-          </li>
-
-          {/* Switch Token */}
-          <li>
-            <Link to="/switch-token" className="switch-box">
+          <Link to="/user">
+            <li className="user-box">
+              <img src={userIcon} alt="User" className="w-8 h-8 rounded-full" />
+              <span>User xxxx</span>
+            </li>
+          </Link>
+          <Link to="/switch-token">
+            <li className="switch-box">
               <img
                 src={switchIcon}
                 alt="Switch Token"
                 style={{ width: "27px", height: "27px" }}
               />
               <span>Switch Token</span>
-            </Link>
-          </li>
+            </li>
+          </Link>
         </ul>
       </div>
     </div>
