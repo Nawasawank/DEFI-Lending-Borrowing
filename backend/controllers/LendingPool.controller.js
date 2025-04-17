@@ -3,7 +3,7 @@ const { ethers } = require("ethers");
 const { web3, LendingPoolContract, FaucetABI, InterestModel } = require('../utils/web3.js');
 const { isAddress } = require('web3-validator');
 const { getTokenContract } = require('../utils/tokenUtils.js');
-const { fetchTokenPrices,coingeckoMap,getTotalCollateralUSD,getTotalBorrowedUSD } = require('../utils/priceUtils.js');
+const { fetchTokenPrices,coingeckoMap,getTotalCollateralUSD,getTotalBorrowedUSD, getTokenPricesForHealthFactor } = require('../utils/priceUtils.js');
 
 const faucetMap = JSON.parse(process.env.FAUCET_MAP);
 const DEFAULT_DECIMALS = 18;
@@ -754,45 +754,20 @@ const LendingController = {
 
         const amountInSmallestUnit = ethers.parseUnits(amount.toString(), DEFAULT_DECIMALS).toString();
 
-        const { totalCollateralUSD } = await getTotalCollateralUSD(fromAddress);
-        const { totalBorrowedUSD } = await getTotalBorrowedUSD(fromAddress);
-
-        let maxBorrowableUSD = 0;
-        
-
-        const result = await LendingPoolContract.methods.getUserCollateral(fromAddress).call();
-        const tokenAddresses = result[0];
-        const balances = result[1];
-
-        for (let i = 0; i < tokenAddresses.length; i++) {
-            const tokenAddress = tokenAddresses[i];
-            const rawBalance = balances[i];
-            if (rawBalance === "0") continue;
-
-            const tokenContract = getTokenContract(tokenAddress);
-            const [symbol, decimals, maxLTVBP] = await Promise.all([
-          tokenContract.methods.symbol().call(),
-          tokenContract.methods.decimals().call(),
-          LendingPoolContract.methods.maxLTV(tokenAddress).call()
-            ]);
-
-            const userBalance = parseFloat(
-          ethers.formatUnits(rawBalance.toString(), Number(decimals))
-            );
-
-            const cgID = coingeckoMap[symbol];
-            if (!cgID) continue;
-
-            const priceData = await fetchTokenPrices([cgID]);
-            const priceUSD = priceData[cgID]?.usd;
-
-            if (priceUSD) {
-          const maxLTV = Number(maxLTVBP) / 10000; // Convert basis points to percentage
-          maxBorrowableUSD += userBalance * priceUSD * maxLTV;
+        // Fetch supported tokens using the updated ABI
+        let supportedTokens;
+        try {
+            supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+            if (!Array.isArray(supportedTokens) || supportedTokens.length === 0) {
+                return res.status(500).json({ error: "No supported tokens found in the LendingPool contract" });
             }
+        } catch (err) {
+            console.error("Error fetching supported tokens:", err.message);
+            return res.status(500).json({ error: "Failed to fetch supported tokens", details: err.message });
         }
-        console.log("Initial maxBorrowableUSD:", maxBorrowableUSD);
 
+        // Fetch token prices for health factor calculation
+        const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
 
         // Fetch token symbol dynamically
         const tokenContract = getTokenContract(assetAddress);
@@ -820,21 +795,13 @@ const LendingController = {
             });
         }
 
-        const maxBorrowableAmount = maxBorrowableUSD / priceUSD;
-
-        if (Number(amount) > maxBorrowableAmount) {
-            return res.status(400).json({
-                error: "Requested amount exceeds borrow limit",
-                maxBorrowable: maxBorrowableAmount.toFixed(6),
-            });
-        }
-
+        // Call the borrow function on the smart contract
         const gasEstimate = await LendingPoolContract.methods
-            .borrow(assetAddress, amountInSmallestUnit)
+            .borrow(assetAddress, amountInSmallestUnit, tokenPricesUSD)
             .estimateGas({ from: fromAddress });
 
         const tx = await LendingPoolContract.methods
-            .borrow(assetAddress, amountInSmallestUnit)
+            .borrow(assetAddress, amountInSmallestUnit, tokenPricesUSD)
             .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5) });
 
         return res.status(200).json({
@@ -986,7 +953,23 @@ async getHealthFactor(req, res) {
             return res.status(400).json({ error: 'Invalid user address' });
         }
 
-        const healthFactor = await LendingPoolContract.methods.getHealthFactor(userAddress).call();
+        // Fetch supported tokens
+        let supportedTokens;
+        try {
+            supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+            if (!Array.isArray(supportedTokens) || supportedTokens.length === 0) {
+                return res.status(500).json({ error: "No supported tokens found in the LendingPool contract" });
+            }
+        } catch (err) {
+            console.error("Error fetching supported tokens:", err.message);
+            return res.status(500).json({ error: "Failed to fetch supported tokens", details: err.message });
+        }
+
+        // Fetch token prices for health factor calculation
+        const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
+
+        // Call the getHealthFactor function with the required parameters
+        const healthFactor = await LendingPoolContract.methods.getHealthFactor(userAddress, tokenPricesUSD).call();
         const formattedHealthFactor = healthFactor === "0"
             ? "0" // Handle no borrow case
             : ethers.formatUnits(healthFactor, 18); // Format as a human-readable number
@@ -996,6 +979,7 @@ async getHealthFactor(req, res) {
             healthFactor: formattedHealthFactor
         });
     } catch (err) {
+        console.error("Error fetching health factor:", err.message);
         return res.status(500).json({ error: 'Failed to fetch health factor', details: err.message });
     }
 },

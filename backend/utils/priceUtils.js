@@ -48,6 +48,18 @@ async function fetchTokenPrices(symbols) {
   }
 }
 
+async function getTokenPriceUSD(tokenAddress) {
+  const tokenContract = getTokenContract(tokenAddress);
+  const symbol = await tokenContract.methods.symbol().call();
+
+  if (coingeckoMap[symbol]) {
+    const prices = await fetchTokenPrices([coingeckoMap[symbol]]);
+    return prices[coingeckoMap[symbol]]?.usd || 0;
+  }
+
+  return 0; // Default to 0 if price not found
+}
+
 async function getTotalCollateralUSD(userAddress) {
     const result = await LendingPoolContract.methods.getUserCollateral(userAddress).call();
     const tokenAddresses = result[0];
@@ -134,10 +146,20 @@ async function getTotalCollateralUSD(userAddress) {
     };
   }
   
+async function getTokenPricesForHealthFactor(supportedTokens) {
+    const prices = [];
+    for (const token of supportedTokens) {
+        const priceUSD = await getTokenPriceUSD(token);
+        prices.push(priceUSD * 1e18); // Convert to 18 decimals
+    }
+    return prices;
+}
 
 module.exports = {
   fetchTokenPrices,
   coingeckoMap,
   getTotalCollateralUSD,
-  getTotalBorrowedUSD
+  getTotalBorrowedUSD,
+  getTokenPriceUSD, // Export the new function
+  getTokenPricesForHealthFactor
 };

@@ -3,7 +3,7 @@ const Web3 = require("web3").default;
 
 // Import compiled contract ABIs
 const PriceOracleABI = require("../artifacts/contracts/PriceOracle.sol/PriceOracle.json");
-const LendingPoolABI = require("../artifacts/contracts/LendingPool.sol/LendingPool.json");
+const LendingPoolABI = require("../artifacts/contracts/LendingPool.sol/LendingPool.json").abi;
 const TokenABI = require("../artifacts/contracts/Token.sol/Token.json");
 const FaucetABI = require("../artifacts/contracts/TokenFaucet.sol/TokenFaucet.json");
 const InterestRateABI = require("../artifacts/contracts/InterestRate.sol/InterestRateModel.json");
@@ -25,7 +25,7 @@ const PriceOracleContract = new web3.eth.Contract(
   priceContractAddress
 );
 const LendingPoolContract = new web3.eth.Contract(
-  LendingPoolABI.abi,
+  LendingPoolABI,
   lendingPoolAddress
 );
 

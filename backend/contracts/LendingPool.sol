@@ -129,9 +129,11 @@ contract LendingPool is Ownable, ReentrancyGuard {
         emit Withdraw(token, msg.sender, amount);
     }
 
-    function getHealthFactor(address user) external view returns (uint256 healthFactor) {
+    function getHealthFactor(address user, uint256[] memory tokenPricesUSD) external view returns (uint256 healthFactor) {
         uint256 totalCollateralValue = 0;
         uint256 totalBorrowValue = 0;
+
+        require(tokenPricesUSD.length == supportedTokens.length, "Invalid token prices length");
 
         for (uint256 i = 0; i < supportedTokens.length; i++) {
             address token = supportedTokens[i];
@@ -140,10 +142,15 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
             if (t.totalShares > 0) {
                 uint256 userBalance = (d.shares * t.totalDeposits) / t.totalShares;
-                totalCollateralValue += (userBalance * liquidationThreshold[token]) / 1e4;
+                uint256 collateralValue = (userBalance * tokenPricesUSD[i]) / 1e18;
+                uint256 adjustedCollateralValue = (collateralValue * liquidationThreshold[token]) / 1e4; // Apply liquidation threshold
+                totalCollateralValue += adjustedCollateralValue;
             }
 
-            totalBorrowValue += borrows[token][user];
+            uint256 userBorrow = borrows[token][user];
+            if (userBorrow > 0) {
+                totalBorrowValue += (userBorrow * tokenPricesUSD[i]) / 1e18;
+            }
         }
 
         if (totalBorrowValue == 0) {
@@ -152,6 +159,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
         healthFactor = (totalCollateralValue * 1e17) / totalBorrowValue;
     }
+
     function accrueBorrowInterest(address token) public {
         TokenState storage t = tokenState[token];
         uint256 elapsed = block.timestamp - t.lastAccrueTime;
@@ -211,7 +219,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
     }
         
 
-    function borrow(address token, uint256 amount) external onlyAllowed(token) nonReentrant {
+    function borrow(address token, uint256 amount, uint256[] memory tokenPricesUSD) external onlyAllowed(token) nonReentrant {
         accrueBorrowInterest(token);
 
         TokenState storage t = tokenState[token];
@@ -234,7 +242,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
         require(borrows[token][msg.sender] + amount <= maxBorrow, "Exceeds max LTV");
 
         // Check user's health factor
-        uint256 healthFactor = this.getHealthFactor(msg.sender);
+        uint256 healthFactor = this.getHealthFactor(msg.sender, tokenPricesUSD);
         require(healthFactor > 0, "Health factor too low to borrow");
 
         borrows[token][msg.sender] += amount;
@@ -437,6 +445,10 @@ contract LendingPool is Ownable, ReentrancyGuard {
             liquidationThreshold[token],
             maxLTV[token]
         );
+    }
+
+    function getSupportedTokens() external view returns (address[] memory) {
+        return supportedTokens;
     }
 }
 

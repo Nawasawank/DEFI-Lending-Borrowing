@@ -25,7 +25,8 @@ contract Liquidation {
         address user, 
         address repayToken, 
         uint256 repayAmount,
-        address collateralToken
+        address collateralToken,
+        uint256[] memory tokenPricesUSD // Add token prices as a parameter
     ) external {
         require(repayAmount > 0, "Repay amount must be positive");
         emit Debug("Step 1: Repay amount is valid", repayAmount);
@@ -34,7 +35,7 @@ contract Liquidation {
         lendingPool.accrueInterest(collateralToken);
         emit Debug("Step 2: Interest accrued", 0);
         
-        require(lendingPool.getHealthFactor(user) < 1e18, "Healthy position");
+        require(lendingPool.getHealthFactor(user, tokenPricesUSD) < 1e18, "Healthy position");
         emit Debug("Step 3: Health factor is valid", 0);
         
         require(lendingPool.allowedTokens(repayToken), "Invalid repay token");
