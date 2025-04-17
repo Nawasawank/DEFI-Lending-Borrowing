@@ -320,7 +320,8 @@ contract LendingPool is Ownable, ReentrancyGuard {
     ) external onlyOwner {
         require(token != address(0), "Invalid token");
         require(_maxLTV <= _liquidationThreshold, "LTV must be <= threshold");
-
+        require(_liquidationPenalty <= 2000, "Penalty too high (max 20%)"); // New check
+        
         supplyCap[token] = _supplyCap;
         borrowCap[token] = _borrowCap;
         maxLTV[token] = _maxLTV;
@@ -331,9 +332,19 @@ contract LendingPool is Ownable, ReentrancyGuard {
     }
 
     function addAllowedToken(address token) external onlyOwner {
+        require(token != address(0), "Invalid token");
         allowedTokens[token] = true;
         supportedTokens.push(token);
+
+        // Set safe default values (50% LTV, 60% threshold, 10% penalty)
+        supplyCap[token] = type(uint256).max;
+        borrowCap[token] = type(uint256).max;
+        maxLTV[token] = 5000;         // 50%
+        liquidationThreshold[token] = 6000; // 60%
+        liquidationPenalty[token] = 1000;   // 10%
+
         emit AllowedTokenAdded(token);
+        emit AssetConfigSet(token, type(uint256).max, type(uint256).max, 5000, 6000, 1000);
     }
 
     function removeAllowedToken(address token) external onlyOwner {
@@ -402,6 +413,31 @@ contract LendingPool is Ownable, ReentrancyGuard {
             tokens[i] = token;
             amounts[i] = borrows[token][user];
         }
+    }
+
+    function resetTokenConfig(address token) external onlyOwner {
+        require(allowedTokens[token], "Token not allowed");
+        liquidationPenalty[token] = 1000; // Reset to 10%
+        emit AssetConfigSet(
+            token,
+            supplyCap[token],
+            borrowCap[token],
+            maxLTV[token],
+            liquidationThreshold[token],
+            1000
+        );
+    }
+
+    function getLiquidationParams(address token) external view returns (
+        uint256 penalty,
+        uint256 threshold,
+        uint256 ltv
+    ) {
+        return (
+            liquidationPenalty[token],
+            liquidationThreshold[token],
+            maxLTV[token]
+        );
     }
 }
 
