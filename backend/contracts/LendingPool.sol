@@ -127,8 +127,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
         emit Withdraw(token, msg.sender, amount);
     }
 
-    function balanceOf(address token, address lender) external returns (uint256) {
-        accrueInterest(token);
+    function balanceOf(address token, address lender) external view returns (uint256) {
 
         TokenState storage t = tokenState[token];
         DepositInfo storage d = deposits[token][lender];
