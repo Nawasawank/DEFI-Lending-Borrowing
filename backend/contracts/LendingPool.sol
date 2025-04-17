@@ -128,7 +128,6 @@ contract LendingPool is Ownable, ReentrancyGuard {
     }
 
     function balanceOf(address token, address lender) external view returns (uint256) {
-
         TokenState storage t = tokenState[token];
         DepositInfo storage d = deposits[token][lender];
         if (t.totalShares == 0) return 0;

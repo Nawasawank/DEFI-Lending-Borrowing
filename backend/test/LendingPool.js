@@ -2,6 +2,8 @@ const hre = require("hardhat");
 const { expect } = require("chai");
 const { ethers } = hre;
 
+const parseEther = (val) => ethers.utils?.parseEther?.(val) || ethers.parseEther(val);
+
 describe("LendingPool deposit with custom InterestRateModel", function () {
   let owner, user;
   let token, faucet, pool, interestModel;
@@ -10,7 +12,7 @@ describe("LendingPool deposit with custom InterestRateModel", function () {
     [owner, user] = await ethers.getSigners();
 
     const Token = await ethers.getContractFactory("Token");
-    token = await Token.deploy("TestToken", "TTK", ethers.parseEther("1000"));
+    token = await Token.deploy("TestToken", "TTK", parseEther("1000"));
     await token.waitForDeployment();
     const tokenAddress = await token.getAddress();
 
@@ -29,11 +31,11 @@ describe("LendingPool deposit with custom InterestRateModel", function () {
 
     await interestModel.setParams(
       tokenAddress,
-      200,   
-      1000,   
-      3000,   
-      8000,   
-      1000   
+      200,
+      1000,
+      3000,
+      8000,
+      1000
     );
 
     const LendingPool = await ethers.getContractFactory("LendingPool");
@@ -43,45 +45,41 @@ describe("LendingPool deposit with custom InterestRateModel", function () {
 
     await pool.setAssetConfig(
       tokenAddress,
-      ethers.parseEther("1000000"), 
-      ethers.parseEther("1000000"), 
-      7500, 
-      8000, 
-      500  
+      parseEther("1000000"),
+      parseEther("1000000"),
+      7500,
+      8000,
+      500
     );
 
-    await token.connect(user).approve(poolAddress, ethers.parseEther("100"));
+    await token.connect(user).approve(poolAddress, parseEther("100"));
   });
 
   it("should deposit tokens and increase user balance", async () => {
-    const depositAmount = ethers.parseEther("100");
+    const depositAmount = parseEther("100");
     const tokenAddress = await token.getAddress();
+
     await pool.connect(user).deposit(tokenAddress, depositAmount);
-  
+    
     const balance = await pool.balanceOf(tokenAddress, user.address);
-  
     expect(balance).to.equal(depositAmount);
   });
 
   it("should fail when deposit is zero", async () => {
     const tokenAddress = await token.getAddress();
-    
-    await expect(
-      pool.connect(user).deposit(tokenAddress, 0)
-    ).to.be.revertedWith("Amount must be greater than zero");
+    await expect(pool.connect(user).deposit(tokenAddress, 0)).to.be.revertedWith("Amount must be greater than zero");
   });
 
   it("should fail if token is not allowed", async () => {
     const OtherToken = await ethers.getContractFactory("Token");
-    const fakeToken = await OtherToken.deploy("FakeToken", "FAK", ethers.parseEther("1000"));
+    const fakeToken = await OtherToken.deploy("FakeToken", "FAK", parseEther("1000"));
     await fakeToken.waitForDeployment();
     const fakeTokenAddress = await fakeToken.getAddress();
-    
-    const poolAddress = await pool.getAddress();
-    await fakeToken.connect(user).approve(poolAddress, ethers.parseEther("10"));
+
+    await fakeToken.connect(user).approve(pool.getAddress(), parseEther("10"));
 
     await expect(
-      pool.connect(user).deposit(fakeTokenAddress, ethers.parseEther("1"))
+      pool.connect(user).deposit(fakeTokenAddress, parseEther("1"))
     ).to.be.revertedWith("Token not allowed");
   });
 });
