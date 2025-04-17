@@ -35,6 +35,14 @@ const LendingController = {
       const allowance = await tokenContract.methods
         .allowance(fromAddress, LendingPoolContract.options.address)
         .call();
+
+      if (BigInt(allowance) < BigInt(parsedRepayAmount)) {
+        return res.status(400).json({
+          error: "Insufficient allowance",
+          required: parsedRepayAmount.toString(),
+          current: allowance.toString(),
+        });
+      }
   
       if (BigInt(allowance) < BigInt(amountInSmallestUnit)) {
         try {
@@ -638,7 +646,99 @@ const LendingController = {
         details: err.message
       });
     }
-  },  
+  },
+
+  async getLiquidationParams(req, res) {
+    try {
+      const { assetAddress } = req.query;
+      if (!isAddress(assetAddress)) {
+        return res.status(400).json({ error: 'Invalid token address' });
+      }
+      
+      const params = await LendingPoolContract.methods
+        .getLiquidationParams(assetAddress)
+        .call();
+      
+      return res.status(200).json({
+        asset: assetAddress,
+        liquidationPenalty: (params.penalty / 100).toFixed(2) + '%',
+        liquidationThreshold: (params.threshold / 100).toFixed(2) + '%',
+        maxLTV: (params.ltv / 100).toFixed(2) + '%'
+      });
+    } catch (err) {
+      return res.status(500).json({ 
+        error: 'Failed to fetch liquidation params', 
+        details: err.message 
+      });
+    }
+  },
+
+  async setAssetConfig(req, res) {
+    try {
+      const { 
+        tokenAddress,
+        supplyCap,
+        borrowCap,
+        maxLTV,
+        liquidationThreshold,
+        liquidationPenalty
+      } = req.body;
+  
+      // Validate inputs
+      if (!isAddress(tokenAddress)) {
+        return res.status(400).json({ error: 'Invalid token address' });
+      }
+      if (liquidationPenalty > 2000) {
+        return res.status(400).json({ error: 'Liquidation penalty cannot exceed 20%' });
+      }
+  
+      const tx = await LendingPoolContract.methods
+        .setAssetConfig(
+          tokenAddress,
+          ethers.parseUnits(supplyCap.toString(), DEFAULT_DECIMALS),
+          ethers.parseUnits(borrowCap.toString(), DEFAULT_DECIMALS),
+          maxLTV,
+          liquidationThreshold,
+          liquidationPenalty
+        )
+        .send({ from: req.adminAddress });
+  
+      return res.status(200).json({
+        message: 'Asset config updated',
+        transactionHash: tx.transactionHash
+      });
+    } catch (err) {
+      return res.status(500).json({ 
+        error: 'Failed to set asset config', 
+        details: err.message 
+      });
+    }
+  },
+
+  async resetTokenConfig(req, res) {
+    try {
+      const { tokenAddress } = req.body;
+      
+      if (!isAddress(tokenAddress)) {
+        return res.status(400).json({ error: 'Invalid token address' });
+      }
+  
+      const tx = await LendingPoolContract.methods
+        .resetTokenConfig(tokenAddress)
+        .send({ from: req.adminAddress });
+  
+      return res.status(200).json({
+        message: 'Token config reset to defaults',
+        transactionHash: tx.transactionHash
+      });
+    } catch (err) {
+      return res.status(500).json({ 
+        error: 'Failed to reset token config', 
+        details: err.message 
+      });
+    }
+  },
+
   async borrow(req, res) {
     try {
         const { fromAddress, assetAddress, amount } = req.body;
