@@ -36,13 +36,6 @@ const LendingController = {
         .allowance(fromAddress, LendingPoolContract.options.address)
         .call();
 
-      if (BigInt(allowance) < BigInt(parsedRepayAmount)) {
-        return res.status(400).json({
-          error: "Insufficient allowance",
-          required: parsedRepayAmount.toString(),
-          current: allowance.toString(),
-        });
-      }
   
       if (BigInt(allowance) < BigInt(amountInSmallestUnit)) {
         try {
