@@ -37,7 +37,7 @@
 }
 
 .sidebar li:hover {
-  background-color: #444;
+  background-color: #dddddf;
   border-radius: 15px;
 }
 
@@ -49,16 +49,27 @@
 
 .sidebar .account-title {
   font-weight: bold;
-  padding: 10px;
   color: #f1f1f1;
   margin-left: 10px;
+  padding-left: 0px;
 }
 
 .sidebar .account-title:hover {
   background-color: transparent;
 }
 
-.sidebar .user-box,
+.sidebar .user-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  background-color: #98a4e6;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
+  border-radius: 15px;
+  color: white;
+  margin-bottom: 10px;
+}
+
 .sidebar .switch-box {
   display: flex;
   align-items: center;
@@ -67,6 +78,5 @@
   background-color: #98a4e6;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
   border-radius: 15px;
-  width: 100%;
   color: white;
 }

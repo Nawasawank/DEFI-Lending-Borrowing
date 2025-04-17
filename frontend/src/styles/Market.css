@@ -1,8 +1,86 @@
+@import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap");
+
 .container {
   display: flex;
   flex-direction: column;
 }
-.market-info {
+
+.market-info-container {
   display: flex;
   flex-direction: row;
+  justify-content: space-between;
+  gap: 0px 20px;
+  margin-top: 20px;
+}
+
+.market-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center; /* Center items vertically within the box */
+  font-weight: bold;
+  color: #5e7d8d;
+  background-color: rgba(255, 255, 255, 0.57);
+  padding: 10px;
+  border-radius: 8px; /* Rounded corners for each icon box */
+  box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
+  width: 100%;
+}
+
+.table-wrapper {
+  padding: 0px 30px;
+  background-color: rgba(255, 255, 255, 0.57);
+  border-radius: 8px;
+  margin-top: 20px;
+}
+
+.market-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.market-table th,
+.market-table td {
+  width: calc((100% - 100px) / 5);
+  text-align: center;
+  justify-content: center;
+  color: #5e7d8d;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.market-table th {
+  border-bottom: 1px solid #5e7d8d;
+}
+
+th:nth-child(6),
+td:nth-child(6) {
+  /* Button Column */
+  width: 100px; /* Adjust width as necessary */
+  text-align: center;
+  vertical-align: middle;
+}
+
+.market-table .asset {
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  text-align: left;
+  gap: 10px;
+}
+
+.market-table .view-button {
+  width: 50px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: none;
+  background-color: white;
+  color: black;
+  margin: 0 auto; /* centers the button in block-level context */
+  display: block; /* needed for margin auto to work */
+}
+
+.market-table .view-icon {
+  width: 15px;
+  height: 15px;
 }
