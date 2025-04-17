@@ -103,8 +103,10 @@ const LiquidationController = {
       }
 
       console.log("[DEBUG] Liquidation Params:", {
-        userAddress,
-        assetAddress,
+        user, // Corrected from userAddress
+        repayToken,
+        repayAmount: parsedRepayAmount.toString(),
+        collateralToken,
       });
 
       // 6. Execute liquidation
@@ -158,19 +160,19 @@ const LiquidationController = {
 
   async checkLiquidationEligibility(req, res) {
     try {
-      const { user } = req.query;
+      const { userAddress } = req.query; // Extract userAddress from query parameters
 
-      if (!isAddress(user)) {
+      if (!isAddress(userAddress)) {
         return res.status(400).json({
           error: "Invalid user address",
-          details: `Received: ${user}`,
+          details: `Received: ${userAddress}`,
         });
       }
 
       const [healthFactor, collateral, debt] = await Promise.all([
-        LendingPoolContract.methods.getHealthFactor(user).call(),
-        LendingPoolContract.methods.getUserCollateral(user).call(),
-        LendingPoolContract.methods.getUserBorrow(user).call(),
+        LendingPoolContract.methods.getHealthFactor(userAddress).call(),
+        LendingPoolContract.methods.getUserCollateral(userAddress).call(),
+        LendingPoolContract.methods.getUserBorrow(userAddress).call(),
       ]);
 
       const isEligible = BigInt(healthFactor) < 1e18;
@@ -178,7 +180,7 @@ const LiquidationController = {
       const hasDebt = debt.amounts.some((a) => a !== "0");
 
       return res.status(200).json({
-        user,
+        user: userAddress,
         isEligible,
         hasCollateral,
         hasDebt,
