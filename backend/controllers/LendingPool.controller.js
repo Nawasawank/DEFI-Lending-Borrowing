@@ -81,12 +81,16 @@ const LendingController = {
   async getLenderBalance(req, res) {
     try {
       const { userAddress, assetAddress } = req.query;
-      if (!isAddress(userAddress) || !isAddress(assetAddress))
+      if (!isAddress(userAddress) || !isAddress(assetAddress)) {
         return res.status(400).json({ error: 'Invalid address' });
-
+      }
+  
+      const accrueTx = await LendingPoolContract.methods.accrueInterest(assetAddress).send({ from: userAddress });
+  
       const balance = await LendingPoolContract.methods
         .balanceOf(assetAddress, userAddress)
         .call();
+  
       return res.status(200).json({
         user: userAddress,
         asset: assetAddress,
@@ -94,9 +98,13 @@ const LendingController = {
         sufficient: BigInt(balance) > 0
       });
     } catch (err) {
-      return res.status(500).json({ error: 'Failed to fetch balance', details: err.message });
+      return res.status(500).json({
+        error: 'Failed to fetch balance',
+        details: err.message
+      });
     }
   },
+  
 
   async getAssetConfig(req, res) {
     try {
