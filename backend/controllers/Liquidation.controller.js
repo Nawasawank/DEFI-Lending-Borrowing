@@ -5,6 +5,7 @@ const {
   LendingPoolContract,
 } = require("../utils/web3.js");
 const { isAddress } = require("web3-validator");
+const { getTokenPricesForHealthFactor } = require("../utils/priceUtils.js");
 
 // Define ERC20_ABI
 const ERC20_ABI = [
@@ -76,9 +77,46 @@ const LiquidationController = {
         });
       }
 
-      // 4. Health factor check
+      // 4. Fetch supported tokens
+      let supportedTokens;
+      try {
+        supportedTokens = await LendingPoolContract.methods
+          .getSupportedTokens()
+          .call();
+        if (!Array.isArray(supportedTokens) || supportedTokens.length === 0) {
+          return res.status(500).json({
+            error: "No supported tokens found in the LendingPool contract",
+          });
+        }
+      } catch (err) {
+        console.error("[DEBUG] Error fetching supported tokens:", err.message);
+        return res.status(500).json({
+          error: "Failed to fetch supported tokens",
+          details: err.message,
+        });
+      }
+
+      // 5. Fetch token prices for health factor calculation
+      let tokenPricesUSD;
+      try {
+        tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
+        if (tokenPricesUSD.length !== supportedTokens.length) {
+          return res.status(500).json({
+            error: "Invalid token prices length",
+            details: `Expected ${supportedTokens.length}, got ${tokenPricesUSD.length}`,
+          });
+        }
+      } catch (err) {
+        console.error("[DEBUG] Error fetching token prices:", err.message);
+        return res.status(500).json({
+          error: "Failed to fetch token prices",
+          details: err.message,
+        });
+      }
+
+      // 6. Health factor check
       const healthFactor = await LendingPoolContract.methods
-        .getHealthFactor(user)
+        .getHealthFactor(user, tokenPricesUSD)
         .call();
 
       if (BigInt(healthFactor) >= 1e18) {
@@ -88,7 +126,7 @@ const LiquidationController = {
         });
       }
 
-      // 5. Token allowance check
+      // 7. Token allowance check
       const token = new web3.eth.Contract(ERC20_ABI, repayToken);
       const allowance = await token.methods
         .allowance(fromAddress, LiquidationContract._address)
@@ -103,22 +141,34 @@ const LiquidationController = {
       }
 
       console.log("[DEBUG] Liquidation Params:", {
-        user, // Corrected from userAddress
+        user,
         repayToken,
         repayAmount: parsedRepayAmount.toString(),
         collateralToken,
       });
 
-      // 6. Execute liquidation
+      // 8. Execute liquidation
       try {
         const gasEstimate = await LiquidationContract.methods
-          .liquidate(user, repayToken, parsedRepayAmount, collateralToken)
+          .liquidate(
+            user,
+            repayToken,
+            parsedRepayAmount,
+            collateralToken,
+            tokenPricesUSD
+          )
           .estimateGas({ from: fromAddress });
 
         console.log("[DEBUG] Gas Estimate:", gasEstimate);
 
         const tx = await LiquidationContract.methods
-          .liquidate(user, repayToken, parsedRepayAmount, collateralToken)
+          .liquidate(
+            user,
+            repayToken,
+            parsedRepayAmount,
+            collateralToken,
+            tokenPricesUSD
+          )
           .send({
             from: fromAddress,
             gas: Math.ceil(gasEstimate * 1.3), // 30% buffer
@@ -160,7 +210,10 @@ const LiquidationController = {
 
   async checkLiquidationEligibility(req, res) {
     try {
-      const { userAddress } = req.query; // Extract userAddress from query parameters
+      const { userAddress } = req.query;
+
+      // Debug: Log the received userAddress
+      console.log("[DEBUG] Received userAddress:", userAddress);
 
       if (!isAddress(userAddress)) {
         return res.status(400).json({
@@ -169,8 +222,35 @@ const LiquidationController = {
         });
       }
 
+      // Fetch supported tokens
+      let supportedTokens;
+      try {
+        supportedTokens = await LendingPoolContract.methods
+          .getSupportedTokens()
+          .call();
+        if (!Array.isArray(supportedTokens) || supportedTokens.length === 0) {
+          return res.status(500).json({
+            error: "No supported tokens found in the LendingPool contract",
+          });
+        }
+      } catch (err) {
+        console.error("[DEBUG] Error fetching supported tokens:", err.message);
+        return res.status(500).json({
+          error: "Failed to fetch supported tokens",
+          details: err.message,
+        });
+      }
+
+      // Fetch token prices for health factor calculation
+      const tokenPricesUSD = await getTokenPricesForHealthFactor(
+        supportedTokens
+      );
+
+      // Fetch health factor, collateral, and debt
       const [healthFactor, collateral, debt] = await Promise.all([
-        LendingPoolContract.methods.getHealthFactor(userAddress).call(),
+        LendingPoolContract.methods
+          .getHealthFactor(userAddress, tokenPricesUSD)
+          .call(), // Pass tokenPricesUSD
         LendingPoolContract.methods.getUserCollateral(userAddress).call(),
         LendingPoolContract.methods.getUserBorrow(userAddress).call(),
       ]);
