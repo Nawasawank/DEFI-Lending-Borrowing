@@ -80,3 +80,48 @@
   border-radius: 15px;
   color: white;
 }
+
+.overlay-container {
+  top: 0;
+  left: 0;
+  width: 240px;
+  height: 240px;
+  background-color: #6a6a6d; /* Semi-transparent background */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 5; /* Behind the sidebar but above other content */
+}
+
+.overlay-content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  width: 100%;
+}
+
+.close-container {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.close-container .close-button {
+  width: 50px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: none;
+  background-color: white;
+}
+
+.close-container .close-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.disconnect-button {
+  color: #6a6a6d;
+  background-color: #d9d9d9;
+}
