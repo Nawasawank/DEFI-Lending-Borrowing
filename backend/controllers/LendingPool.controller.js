@@ -983,6 +983,58 @@ async getHealthFactor(req, res) {
         return res.status(500).json({ error: 'Failed to fetch health factor', details: err.message });
     }
 },
+
+async getMaxBorrowable(req, res) {
+    try {
+        const { userAddress, assetAddress } = req.query;
+
+        if (!isAddress(userAddress) || !isAddress(assetAddress)) {
+            return res.status(400).json({ error: 'Invalid address' });
+        }
+
+        // Fetch token prices and user collateral
+        const tokenContract = getTokenContract(assetAddress);
+        const [symbol, decimalsRaw, maxLTVBP] = await Promise.all([
+            tokenContract.methods.symbol().call(),
+            tokenContract.methods.decimals().call(),
+            LendingPoolContract.methods.maxLTV(assetAddress).call()
+        ]);
+
+        const decimals = Number(decimalsRaw);
+        const tokenKey = symbol.toUpperCase();
+
+        if (!coingeckoMap[tokenKey]) {
+            return res.status(400).json({ error: `Symbol ${symbol} is not mapped to a price feed` });
+        }
+
+        const [priceData, collateral] = await Promise.all([
+            fetchTokenPrices([coingeckoMap[tokenKey]]),
+            getTotalCollateralUSD(userAddress)
+        ]);
+
+        const priceUSD = priceData[coingeckoMap[tokenKey]]?.usd;
+        if (!priceUSD || isNaN(priceUSD)) {
+            return res.status(500).json({ error: 'Unable to fetch valid price for token' });
+        }
+
+        const collateralUSD = parseFloat(collateral.totalCollateralUSD);
+
+        // Calculate max borrowable amount
+        const maxBorrowableUSD = collateralUSD * (Number(maxLTVBP) / 1000000);
+        const maxBorrowableAmount = maxBorrowableUSD / priceUSD;
+
+        return res.status(200).json({
+            user: userAddress,
+            asset: assetAddress,
+            maxBorrow: maxBorrowableAmount > 0 ? maxBorrowableAmount.toFixed(6) : "0"
+        });
+    } catch (err) {
+        return res.status(500).json({
+            error: 'Failed to calculate max borrowable',
+            details: err.message
+        });
+    }
+},
   
     
 };
