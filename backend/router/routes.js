@@ -32,6 +32,7 @@ router.get("/claimToken", LendingController.claimAllTokensForUser);
 router.get("/MaxWithdraw", LendingController.getMaxWithdrawable);
 router.get("/health-factor", LendingController.getHealthFactor);
 router.get("/MaxBorrow", LendingController.getMaxBorrowable); // Get max borrowable amount for a user and asset
+router.get("/preview-health-factor", LendingController.PreviewHealthFactor); // Preview health factor after borrowing a value
 
 // Borrow and Repay routes
 router.post("/borrow", LendingController.borrow); // allow user to borrow tokens

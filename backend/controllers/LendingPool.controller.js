@@ -1035,6 +1035,90 @@ async getMaxBorrowable(req, res) {
         });
     }
 },
+
+async PreviewHealthFactor(req, res) {
+    try {
+        const { userAddress, assetAddress, borrowAmount } = req.query;
+
+        if (!isAddress(userAddress) || !isAddress(assetAddress)) {
+            return res.status(400).json({ error: 'Invalid address' });
+        }
+
+        if (isNaN(borrowAmount) || Number(borrowAmount) <= 0) {
+            return res.status(400).json({ error: 'Invalid borrow amount' });
+        }
+
+        // Fetch token prices and user collateral
+        const tokenContract = getTokenContract(assetAddress);
+        const [symbol, decimalsRaw, liquidationThresholdBP] = await Promise.all([
+            tokenContract.methods.symbol().call(),
+            tokenContract.methods.decimals().call(),
+            LendingPoolContract.methods.liquidationThreshold(assetAddress).call()
+        ]);
+
+        const decimals = Number(decimalsRaw);
+        const tokenKey = symbol.toUpperCase();
+
+        if (!coingeckoMap[tokenKey]) {
+            return res.status(400).json({ error: `Symbol ${symbol} is not mapped to a price feed` });
+        }
+
+        const [priceData, collateral, borrow] = await Promise.all([
+            fetchTokenPrices([coingeckoMap[tokenKey]]),
+            getTotalCollateralUSD(userAddress),
+            getTotalBorrowedUSD(userAddress)
+        ]);
+
+        const priceUSD = priceData[coingeckoMap[tokenKey]]?.usd;
+        if (!priceUSD || isNaN(priceUSD)) {
+            return res.status(500).json({ error: 'Unable to fetch valid price for token' });
+        }
+
+        const collateralUSD = parseFloat(collateral.totalCollateralUSD);
+        const borrowedUSD = parseFloat(borrow.totalBorrowedUSD);
+        const borrowValueUSD = Number(borrowAmount) * priceUSD;
+
+        // Debug logs to identify issues
+        console.log("Collateral USD:", collateralUSD);
+        console.log("Borrowed USD:", borrowedUSD);
+        console.log("Borrow Value USD:", borrowValueUSD);
+        console.log("Liquidation Threshold BP:", liquidationThresholdBP);
+
+        // Handle zero collateral case
+        if (collateralUSD === 0) {
+            return res.status(400).json({
+                error: 'User has no collateral supplied',
+                collateralUSD: collateralUSD.toString(),
+                liquidationThresholdBP: liquidationThresholdBP.toString()
+            });
+        }
+
+        // Calculate new health factor
+        const adjustedCollateral = (collateralUSD * (Number(liquidationThresholdBP) / 100000));
+        const newBorrowedUSD = borrowedUSD + borrowValueUSD;
+
+        console.log("Adjusted Collateral:", adjustedCollateral);
+        console.log("New Borrowed USD:", newBorrowedUSD);
+
+        // Handle division by zero
+        const newHealthFactor = newBorrowedUSD === 0
+            ? "Infinity"
+            : (adjustedCollateral / newBorrowedUSD).toFixed(6);
+
+        return res.status(200).json({
+            user: userAddress,
+            asset: assetAddress,
+            borrowAmount: borrowAmount.toString(), // Convert to string
+            borrowValueUSD: borrowValueUSD.toFixed(2),
+            newHealthFactor
+        });
+    } catch (err) {
+        return res.status(500).json({
+            error: 'Failed to preview health factor',
+            details: err.message
+        });
+    }
+},
   
     
 };
