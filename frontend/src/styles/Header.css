@@ -10,8 +10,12 @@
   color: white;
   font-family: "Ubuntu", sans-serif;
   font-size: 36px; /* Correct font size with unit */
-  margin-top: 10px;
+  margin-top: 39px;
   position: relative;
+  width: 1000px;
+  height: 100px;
+  margin-left: 70px;
+  margin-top: 50px;
 }
 
 .ethereum-icon {
@@ -31,11 +35,13 @@
   font-size: 30px;
   font-weight: 700; /* Ubuntu bold weight */
   margin-left: 0;
+  margin-bottom: 10px;
 }
 
 .header-subtitle {
   font-size: 17px;
   font-weight: 400; /* Ubuntu regular weight */
   margin-top: 5px; /* Adjust margin for subtitle */
-  margin-left: 0;
+  margin-left: -60px;
+  margin-bottom: 10px;
 }

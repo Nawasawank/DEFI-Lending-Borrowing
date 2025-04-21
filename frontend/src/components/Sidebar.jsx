@@ -1,83 +1,105 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import "../styles/Sidebar.css";
-import { ReactComponent as xIcon } from "../pictures/xIcon.svg";
+import makeBlockie from "ethereum-blockies-base64";
+import '../styles/Sidebar.css';
 
 // Import PNG icons
 import homeIcon from "../pictures/homeIcon.png";
 import marketIcon from "../pictures/marketIcon.png";
 import alertIcon from "../pictures/alertIcon.png";
-import userIcon from "../pictures/userIcon.png";
 import switchIcon from "../pictures/switchIcon.png";
+import settingIcon from "../pictures/settingIcon.png";
 
 const Sidebar = () => {
-  const [showUserOverlay, setShowUserOverlay] = useState(false);
-  const toggleUserOverlay = () => {
-    setShowUserOverlay(!showUserOverlay);
+  const [account, setAccount] = useState(null);
+  const [blockieSrc, setBlockieSrc] = useState("");
+
+  const connectWallet = async () => {
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        setAccount(accounts[0]);
+        setBlockieSrc(makeBlockie(accounts[0]));
+      } catch (error) {
+        console.error("Connection rejected:", error);
+      }
+    } else {
+      alert("MetaMask not detected. Please install it from https://metamask.io/");
+    }
   };
 
-  return (
-    <div className="sidebar-container">
-      <div className="sidebar">
-        <ul>
-          <Link to="/">
-            <li>
-              <img src={homeIcon} alt="Dashboard" className="w-6 h-6" />
-              Dashboard
-            </li>
-          </Link>
-          <Link to="/market">
-            <li>
-              <img src={marketIcon} alt="Market" className="w-6 h-6" />
-              Market
-            </li>
-          </Link>
-          <Link to="/risk-alert">
-            <li>
-              <img src={alertIcon} alt="Risk Alert" className="w-6 h-6" />
-              Risk Alert
-            </li>
-          </Link>
-          <li className="account-title">Account Page</li>
-          <Link to="/user">
-            <li className="user-box" onClick={toggleUserOverlay}>
-              <img src={userIcon} alt="User" className="w-8 h-8 rounded-full" />
-              <span>User xxxx</span>
-            </li>
-          </Link>
-          <Link to="/switch-token">
-            <li className="switch-box">
-              <img
-                src={switchIcon}
-                alt="Switch Token"
-                style={{ width: "27px", height: "27px" }}
-              />
-              <span>Switch Token</span>
-            </li>
-          </Link>
-        </ul>
-      </div>
+  useEffect(() => {
+    if (window.ethereum && window.ethereum.selectedAddress) {
+      const addr = window.ethereum.selectedAddress;
+      setAccount(addr);
+      setBlockieSrc(makeBlockie(addr));
+    }
 
-      {/* User Overlay */}
-      {showUserOverlay && (
-        <div className="overlay-container">
-          <div className="overlay-content">
-            <div className="close-container" onClick={toggleUserOverlay}>
-              <button className="close-button">
-                <xIcon className="close-icon" />
-              </button>
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', (accounts) => {
+        const addr = accounts[0];
+        setAccount(addr);
+        setBlockieSrc(makeBlockie(addr));
+      });
+    }
+  }, []);
+
+  return (
+    <div className="sidebar">
+      <ul>
+        {/* Dashboard */}
+        <li>
+          <img src={homeIcon} alt="Dashboard" className="w-6 h-6" />
+          <Link to="/">Dashboard</Link>
+        </li>
+
+        {/* Market */}
+        <li>
+          <img src={marketIcon} alt="Market" className="w-6 h-6" />
+          <Link to="/market">Market</Link>
+        </li>
+
+        {/* Risk Alert */}
+        <li>
+          <img src={alertIcon} alt="Risk Alert" className="w-6 h-6" />
+          <Link to="/risk-alert">Risk Alert</Link>
+        </li>
+
+        {/* Account Section */}
+        <li className="account-title">Account Page</li>
+
+        {/* Profile Setting */}
+        <li className="user-box">
+          <Link to="/profile-settings" className="profile-setting-link">
+            <img src={settingIcon} alt="Settings" style={{ width: '24px', height: '24px' }} />
+            <span>Profile Setting</span>
+          </Link>
+        </li>
+
+        {/* Switch Token */}
+        <li className="switch-box">
+          <Link to="/switch-token" className="switch-display">
+            <img src={switchIcon} alt="Switch Token" style={{ width: '24px', height: '24px' }} />
+            <span>Switch Token</span>
+          </Link>
+        </li>
+
+        {/* MetaMask Connect Wallet */}
+        <li className="metamask-box">
+          {account ? (
+            <div className="wallet-display">
+              <img className="wallet-icon" src={blockieSrc} alt="wallet icon" />
+              <span className="wallet-address">
+                {account.slice(0, 6)}...{account.slice(-4)}
+              </span>
             </div>
-            <div className="user-pic">
-              <p>user pic</p>
-            </div>
-            <div className="user-info">
-              <h2>User Name</h2>
-              <p>-- eth</p>
-            </div>
-            <button className="disconnect-button">Disconnect</button>
-          </div>
-        </div>
-      )}
+          ) : (
+            <button onClick={connectWallet} className="metamask-connect-btn">
+              Connect Wallet
+            </button>
+          )}
+        </li>
+      </ul>
     </div>
   );
 };

@@ -2,3 +2,21 @@
   display: flex;
   flex-direction: column;
 }
+
+.container {
+  display: flex;
+  flex-direction: colum
+  n;
+  margin-left: 70px;
+}
+.upper {
+  display: flex;
+  flex-direction: row;
+  gap: 30px;
+}
+
+.lower {
+  display: flex;
+  flex-direction: row;
+  gap: 30px;
+}

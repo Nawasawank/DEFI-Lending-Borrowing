@@ -1,38 +1,43 @@
-@import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap");
-
-.activity-container {
+.activity-containers {
   width: 500px;
-  height: 230px;
+  height: 240px;
   background: rgba(19, 19, 19, 0.3);
   padding: auto;
   border-radius: 10px;
   font-family: "Ubuntu", sans-serif;
-  display: flex; /* Added to ensure proper alignment */
-  flex-direction: column; /* Ensures vertical stacking of internal components */
+  display: flex;
+  flex-direction: column;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+ 
 }
 
+/* Header */
 .supplies-header {
   display: flex;
-  align-items: center; /* Align items vertically */
-  width: 100%; /* Ensures the header extends full width of its container */
-  font-size: 13px;
+  align-items: center;
+  width: 100%;
+  font-size: 12px;
 }
 
 .supplies {
-  padding: 20px;
+  padding: 0px;
   border-radius: 10px;
   color: white;
-  width: 600px; /* Adjust based on your layout needs */
-  display: flex; /* Ensures that header and table are organized vertically */
-  flex-direction: column; /* Stacks children vertically */
+  width: 470px; /* use relative width */
+  display: flex;
+  flex-direction: column;
+  margin-left: 20px;
+  margin-top: 20px;
+ 
 }
+
 
 h2 {
-  margin: 0; /* Removes default margin */
-  padding-right: 10px; /* Provides space next to the heading */
+  margin: 0;
+  padding-right: 10px;
 }
 
+/* Top info boxes */
 .info-section {
   display: flex;
   justify-content: flex-start;
@@ -50,64 +55,63 @@ h2 {
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
 }
 
-table {
-  width: 470px;
-  height: 100px;
-  border-collapse: separate;
-  border-spacing: 0px 0px; /* horizontal and vertical spacing */
-  margin-top: 20px;
+/* Table Styling */
+.s table {
+  table-layout: fixed; /* Force equal column width */
+  border-collapse: collapse;
+  margin-top: 10px;
 }
 
-th,
-td {
+
+.s th {
+  border-bottom: 1px solid white;
+  font-size: 13px;
   text-align: left;
-  color: white;
+  padding-bottom: 4px;
+}
+
+
+.s tbody tr {
+  background: transparent;
+  line-height: 20px;
+}
+
+.s td {
   font-size: 12px;
-  padding: 10px 0px;
+  padding: 6px 0;
 }
 
-th:nth-child(3),
-td:nth-child(3) {
-  /* APY Column */
-  width: 60px; /* Adjust width as necessary */
+
+.s th, td {
+  width: 10px; /* or whatever equal share needed */
 }
 
-th:nth-child(2),
-td:nth-child(2) {
-  /* Withdraw Button Column */
-  width: 120px; /* Adjust width as necessary, ensure it fits the content */
-}
+.s th:nth-child(3),
+  td:nth-child(3) {
+  
+    width: 70px; /* Adjust width as necessary */
+  }
+  
+.s th:nth-child(2),
+  td:nth-child(2) {
+    /* Withdraw Button Column */
+    width: 100px; /* Adjust width as necessary, ensure it fits the content */
+  }
+  
+.s th:nth-child(1),
+  td:nth-child(1) {
+    /* Assets Column */
+    width: 70px; /* Adjust width as necessary */
+  }
 
-th:nth-child(1),
-td:nth-child(1) {
-  /* APY Column */
-  width: 60px; /* Adjust width as necessary */
-}
+  .s th:nth-child(4),
+  td:nth-child(4) {
+    /* Assets Column */
+    width: 10px; /* Adjust width as necessary */
+  }
+  
 
-th {
-  background: transparent;
-  padding: 0px 0px 10px 0px; /* Decrease the right and left padding */
-  margin-bottom: 20px;
-  border-bottom: 1px solid white; /* Adds a white line below the header */
-}
-
-tbody tr {
-  background: transparent;
-  line-height: 20px; /* Adjust height to match design */
-}
-
-button,
-.link-button {
-  border: none;
-  padding: 5px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-  color: white;
-  background-color: transparent;
-  text-decoration: none; /* Removes underline from links */
-  display: block;
-}
-
+/* Asset icon */
 .asset-icon {
   width: 30px;
   height: 30px;
@@ -115,39 +119,36 @@ button,
   border-radius: 50%;
 }
 
-input[type="checkbox"] {
-  margin: 0 10px;
-  cursor: pointer;
-}
-
-.button-container {
+/* Button container */
+.sbutton-container {
   display: flex;
   justify-content: flex-start; /* Adjusts the space between the buttons */
-  gap: 15px; /* Adds space between the buttons */
+  gap: 15px; /* Adds space between the buttons */;
 }
 
-.link-button {
+/* Buttons */
+.slink-button  {
   padding: 5px 10px;
   border-radius: 5px;
   background-color: #707070;
   color: white;
   text-decoration: none;
-  display: block; /* Makes the link fill the container like a button */
-  text-align: center; /* Centers text within the link */
+  display: block;
+  text-align: center;
   cursor: pointer;
 }
 
-.link-button:hover {
-  background-color: #555; /* Darker on hover for better UX */
+.slink-button:hover {
+  background-color: #555;
   color: #fff;
 }
 
-.Switch-button {
-  background-color: #98a4e6; /* Light blue background for distinction */
+.sSwitch-button  {
+  background-color: #98a4e6;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
 }
 
-.Withdraw-button {
-  background-color: #050505; /* Darker for distinction */
+.sWithdraw-button  {
+  background-color: #050505;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
 }
