@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import Header from '../components/Header';
-import DisplayIcons from '../components/DisplayIcons';
-import Yoursupplies from '../components/Yoursupplies';
-import Yourborrows from '../components/Yourborrows';
-import AssetSupplies from '../components/Assetsupplies';
-import AssetBorrow from '../components/Assetborrow';
-import SupplyPage from '../pages/SupplyPage';
+import Header from '../components/Header.jsx';
+import DisplayIcons from '../components/DisplayIcons.jsx';
+import Yoursupplies from '../components/Yoursupplies.jsx';
+import Yourborrows from '../components/Yourborrows.jsx';
+import AssetSupplies from '../components/Assetsupplies.jsx';
+import AssetBorrow from '../components/Assetborrow.jsx';
+import SupplyPage from '../pages/SupplyPage.jsx';
 import '../styles/Dashboard.css'; // Ensure your CSS path is correct
 
 const Dashboard = () => {
