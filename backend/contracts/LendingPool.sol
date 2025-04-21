@@ -243,22 +243,39 @@ contract LendingPool is Ownable, ReentrancyGuard {
         require(t.totalDeposits - t.totalBorrows >= amount, "Not enough liquidity");
         require(t.totalBorrows + amount <= borrowCap[token], "Exceeds borrow cap");
 
-        uint256 totalCollateralValue = 0;
+        require(tokenPricesUSD.length == supportedTokens.length, "Invalid token prices length");
+
+        uint256 totalBorrowableValue = 0;
+
         for (uint256 i = 0; i < supportedTokens.length; i++) {
             address colToken = supportedTokens[i];
             TokenState storage colState = tokenState[colToken];
             DepositInfo storage colDeposit = deposits[colToken][msg.sender];
 
-            if (colState.totalShares == 0) continue;
+            if (colState.totalShares == 0 || colDeposit.shares == 0) continue;
 
             uint256 balance = (colDeposit.shares * colState.totalDeposits) / colState.totalShares;
-            totalCollateralValue += balance;
+
+            uint256 collateralValueUSD = (balance * tokenPricesUSD[i]) / 1e18;
+
+            uint256 borrowable = (collateralValueUSD * maxLTV[colToken]) / 1e4;
+
+            totalBorrowableValue += borrowable;
         }
 
-        uint256 maxBorrow = (totalCollateralValue * maxLTV[token]) / 1e4;
-        require(borrows[token][msg.sender] + amount <= maxBorrow, "Exceeds max LTV");
+        uint256 borrowTokenIndex = 0;
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            if (supportedTokens[i] == token) {
+                borrowTokenIndex = i;
+                break;
+            }
+        }
 
-        // Check user's health factor
+        uint256 borrowTokenPriceUSD = tokenPricesUSD[borrowTokenIndex];
+        uint256 borrowValueUSD = (amount * borrowTokenPriceUSD) / 1e18;
+
+        require(borrowValueUSD <= totalBorrowableValue, "Exceeds collateral-based limit");
+
         uint256 healthFactor = this.getHealthFactor(msg.sender, tokenPricesUSD);
         require(healthFactor > 0, "Health factor too low to borrow");
 
@@ -269,6 +286,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
         emit Borrow(token, msg.sender, amount);
     }
+
 
 
     function repayBalanceOf(address token, address borrower) external returns (uint256) {
