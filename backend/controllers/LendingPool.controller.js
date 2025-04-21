@@ -125,7 +125,7 @@ const LendingController = {
           borrowCap: ethers.formatUnits(borrowCap, DEFAULT_DECIMALS),
           maxLTV: (Number(maxLTV) / 1000).toFixed(2) + '%',
           liquidationThreshold: (Number(liquidationThreshold) / 1000).toFixed(2) + '%',
-          liquidationPenalty: (Number(liquidationPenalty) / 1000).toFixed(2) + '%'
+          liquidationPenalty: (Number(liquidationPenalty) / 10).toFixed(2) + '%'
         }
       });
     } catch (err) {
