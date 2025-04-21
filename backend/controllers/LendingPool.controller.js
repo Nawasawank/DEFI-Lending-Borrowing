@@ -768,16 +768,10 @@ const LendingController = {
 
         const amountInSmallestUnit = ethers.parseUnits(amount.toString(), DEFAULT_DECIMALS).toString();
 
-        // Fetch supported tokens using the updated ABI
-        let supportedTokens;
-        try {
-            supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
-            if (!Array.isArray(supportedTokens) || supportedTokens.length === 0) {
-                return res.status(500).json({ error: "No supported tokens found in the LendingPool contract" });
-            }
-        } catch (err) {
-            console.error("Error fetching supported tokens:", err.message);
-            return res.status(500).json({ error: "Failed to fetch supported tokens", details: err.message });
+        // Fetch supported tokens
+        const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+        if (!Array.isArray(supportedTokens) || supportedTokens.length === 0) {
+            return res.status(500).json({ error: "No supported tokens found in the LendingPool contract" });
         }
 
         // Fetch token prices for health factor calculation
@@ -786,7 +780,6 @@ const LendingController = {
         // Fetch token symbol dynamically
         const tokenContract = getTokenContract(assetAddress);
         const symbol = await tokenContract.methods.symbol().call();
-        console.log("Token Symbol:", symbol);
 
         // Check if the symbol exists in coingeckoMap
         const coingeckoID = coingeckoMap[symbol];
@@ -799,13 +792,29 @@ const LendingController = {
 
         // Fetch price data
         const priceData = await fetchTokenPrices([coingeckoID]);
-        console.log("Price Data:", priceData);
-
         const priceUSD = priceData[coingeckoID]?.usd;
         if (!priceUSD) {
             return res.status(500).json({
                 error: `Unable to fetch price for token: ${assetAddress}`,
                 details: "Ensure the token is mapped correctly in coingeckoMap and the API is reachable.",
+            });
+        }
+
+        // Calculate max borrowable amount
+        const [collateral] = await Promise.all([
+            getTotalCollateralUSD(fromAddress),
+        ]);
+
+        const collateralUSD = parseFloat(collateral.totalCollateralUSD);
+        const maxLTVBP = await LendingPoolContract.methods.maxLTV(assetAddress).call();
+        const maxBorrowableUSD = collateralUSD * (Number(maxLTVBP) / 1000000);
+        const borrowValueUSD = Number(amount) * priceUSD;
+
+        if (borrowValueUSD > maxBorrowableUSD) {
+            return res.status(400).json({
+                error: "Borrow amount exceeds maximum borrowable limit",
+                maxBorrowableUSD: maxBorrowableUSD.toFixed(2),
+                borrowValueUSD: borrowValueUSD.toFixed(2),
             });
         }
 
