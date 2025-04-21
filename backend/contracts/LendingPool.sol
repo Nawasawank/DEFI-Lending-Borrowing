@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
+import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -48,6 +49,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
     event AssetConfigSet(address token, uint256 supplyCap, uint256 borrowCap, uint256 maxLTV, uint256 liquidationThreshold, uint256 liquidationPenalty);
 
     constructor(address[] memory _allowedTokens, address _interestModel) Ownable(msg.sender) {
+        require(_interestModel != address(0), "Invalid interest model");
         interestModel = IInterestRateModel(_interestModel);
         for (uint256 i = 0; i < _allowedTokens.length; i++) {
             allowedTokens[_allowedTokens[i]] = true;
@@ -164,17 +166,32 @@ contract LendingPool is Ownable, ReentrancyGuard {
         TokenState storage t = tokenState[token];
         uint256 elapsed = block.timestamp - t.lastAccrueTime;
 
-        if (elapsed == 0 || t.totalBorrows == 0) return;
+        console.log("Accruing borrow interest for token:", token);
+        console.log("Elapsed time since last accrue:", elapsed);
+        console.log("Total borrows before accrual:", t.totalBorrows);
+
+        if (elapsed == 0 || t.totalBorrows == 0) {
+            console.log("No interest accrued (elapsed == 0 or totalBorrows == 0)");
+            return;
+        }
 
         uint256 utilization = getUtilization(token);
+        console.log("Utilization:", utilization);
         // uint256 borrowRate = interestModel.getBorrowRate(utilization, token);
         uint256 borrowRate = interestModel.getSupplyRate(utilization, token); // Assuming borrow rate is derived similarly
+        console.log("Borrow rate:", borrowRate);
 
         uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
+        console.log("Rate per second:", ratePerSecond);
+
         uint256 interestAccrued = (t.totalBorrows * ratePerSecond * elapsed) / 1e18;
+        console.log("Interest accrued:", interestAccrued);
 
         t.totalBorrows += interestAccrued;
         t.lastAccrueTime = block.timestamp;
+
+        console.log("Total borrows after accrual:", t.totalBorrows);
+        console.log("Last accrue time updated to:", t.lastAccrueTime);
     }
 
     function repay(address token, uint256 amount) external onlyAllowed(token) nonReentrant {
@@ -343,6 +360,12 @@ contract LendingPool is Ownable, ReentrancyGuard {
         allowedTokens[token] = true;
         supportedTokens.push(token);
 
+        // Initialize token state
+        TokenState storage t = tokenState[token];
+        if (t.lastAccrueTime == 0) {
+            t.lastAccrueTime = block.timestamp;
+        }
+
         // Set safe default values (50% LTV, 60% threshold, 10% penalty)
         supplyCap[token] = type(uint256).max;
         borrowCap[token] = type(uint256).max;
@@ -445,6 +468,15 @@ contract LendingPool is Ownable, ReentrancyGuard {
             liquidationThreshold[token],
             maxLTV[token]
         );
+    }
+
+    function approveLiquidation(address token, address liquidator, uint256 amount) external onlyOwner {
+        require(allowedTokens[token], "Token not allowed");
+        require(liquidator != address(0), "Invalid liquidator address");
+        require(amount > 0, "Amount must be greater than zero");
+
+        // Approve the Liquidation contract to transfer tokens
+        IERC20(token).approve(liquidator, amount);
     }
 
     function getSupportedTokens() external view returns (address[] memory) {
