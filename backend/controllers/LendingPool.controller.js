@@ -337,21 +337,35 @@ const LendingController = {
 
   async getSupplyAPY(req, res) {
     try {
-      const { assetAddress } = req.query;
-      if (!isAddress(assetAddress)) {
-        return res.status(400).json({ error: 'Invalid token address' });
+      const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+  
+      const results = [];
+  
+      for (const token of supportedTokens) {
+        try {
+          const utilization = await LendingPoolContract.methods.getUtilization(token).call();
+          const supplyAPY = await InterestModel.methods.getSupplyAPY(token, utilization).call();
+  
+          results.push({
+            asset: token,
+            supplyAPY: (Number(supplyAPY) / 100).toFixed(2) + '%',
+            rawBasisPoints: supplyAPY.toString(),
+            utilization: (Number(utilization) / 100).toFixed(2) + '%'
+          });
+        } catch (innerErr) {
+          console.error(`Failed to get APY for ${token}:`, innerErr.message);
+          results.push({
+            asset: token,
+            error: "Failed to calculate APY",
+            details: innerErr.message
+          });
+        }
       }
-      const utilization = await LendingPoolContract.methods.getUtilization(assetAddress).call();
-      const supplyAPY = await InterestModel.methods.getSupplyAPY(assetAddress, utilization).call();
-      const apyPercentage = (Number(supplyAPY) / 100).toFixed(2);
-      return res.status(200).json({
-        asset: assetAddress,
-        supplyAPY: apyPercentage + '%',
-        rawBasisPoints: supplyAPY.toString(),
-        utilization: (Number(utilization) / 100).toFixed(2) + '%'
-      });
+  
+      return res.status(200).json(results);
     } catch (err) {
-      return res.status(500).json({ error: 'Failed to fetch supply APY', details: err.message });
+      console.error("Error in getAllSupplyAPYs:", err.message);
+      return res.status(500).json({ error: "Failed to fetch supply APYs", details: err.message });
     }
   },
 
