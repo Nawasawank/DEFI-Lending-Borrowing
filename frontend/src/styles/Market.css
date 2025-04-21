@@ -75,7 +75,6 @@ td:nth-child(6) {
   border-radius: 6px;
   border: none;
   background-color: white;
-  color: black;
   margin: 0 auto; /* centers the button in block-level context */
   display: block; /* needed for margin auto to work */
 }
