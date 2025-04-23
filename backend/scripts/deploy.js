@@ -8,9 +8,12 @@ async function main() {
 
   const Token = await ethers.getContractFactory("Token");
   const Faucet = await ethers.getContractFactory("TokenFaucet");
-  const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
+  const InterestRateModel = await ethers.getContractFactory(
+    "InterestRateModel"
+  );
   const LendingPool = await ethers.getContractFactory("LendingPool");
   const PriceOracle = await ethers.getContractFactory("PriceOracle");
+  const Liquidation = await ethers.getContractFactory("Liquidation");
 
   const initialSupply = ethers.parseEther("1000000");
 
@@ -48,16 +51,49 @@ async function main() {
   await interestRateModel.waitForDeployment();
   console.log("\n✅ InterestRateModel deployed to:", interestRateModel.target);
 
-  const lendingPool = await LendingPool.deploy(tokenAddresses, interestRateModel.target);
+  const lendingPool = await LendingPool.deploy(
+    tokenAddresses,
+    interestRateModel.target
+  );
   await lendingPool.waitForDeployment();
   console.log("✅ LendingPool deployed to:", lendingPool.target);
 
   const assetConfigs = {
-    WETH: { supplyCap: ethers.parseEther("500000"), borrowCap: ethers.parseEther("300000"), maxLTV: 82500, liquidationThreshold: 85000, liquidationPenalty: 750 },
-    WBTC: { supplyCap: ethers.parseEther("21000"), borrowCap: ethers.parseEther("10000"), maxLTV: 70000, liquidationThreshold: 75000, liquidationPenalty: 1000 },
-    USDC: { supplyCap: ethers.parseUnits("2000000", 6), borrowCap: ethers.parseUnits("1800000", 6), maxLTV: 90000, liquidationThreshold: 92500, liquidationPenalty: 500 },
-    DAI:  { supplyCap: ethers.parseEther("1000000"), borrowCap: ethers.parseEther("800000"), maxLTV: 87500, liquidationThreshold: 90000, liquidationPenalty: 500 },
-    GHO:  { supplyCap: ethers.parseEther("600000"), borrowCap: ethers.parseEther("300000"), maxLTV: 70000, liquidationThreshold: 75000, liquidationPenalty: 1000 }
+    WETH: {
+      supplyCap: ethers.parseEther("500000"),
+      borrowCap: ethers.parseEther("300000"),
+      maxLTV: 82500,
+      liquidationThreshold: 85000,
+      liquidationPenalty: 750,
+    },
+    WBTC: {
+      supplyCap: ethers.parseEther("21000"),
+      borrowCap: ethers.parseEther("10000"),
+      maxLTV: 70000,
+      liquidationThreshold: 75000,
+      liquidationPenalty: 1000,
+    },
+    USDC: {
+      supplyCap: ethers.parseUnits("2000000", 6),
+      borrowCap: ethers.parseUnits("1800000", 6),
+      maxLTV: 90000,
+      liquidationThreshold: 92500,
+      liquidationPenalty: 500,
+    },
+    DAI: {
+      supplyCap: ethers.parseEther("1000000"),
+      borrowCap: ethers.parseEther("800000"),
+      maxLTV: 87500,
+      liquidationThreshold: 90000,
+      liquidationPenalty: 500,
+    },
+    GHO: {
+      supplyCap: ethers.parseEther("600000"),
+      borrowCap: ethers.parseEther("300000"),
+      maxLTV: 70000,
+      liquidationThreshold: 75000,
+      liquidationPenalty: 1000,
+    },
   };
 
   console.log("⚙️ Setting asset configs...");
@@ -103,6 +139,11 @@ async function main() {
   await priceOracle.waitForDeployment();
   console.log("\n📡 PriceOracle deployed to:", priceOracle.target);
 
+  // Deploy Liquidation contract
+  const liquidation = await Liquidation.deploy(lendingPool.target); // Pass LendingPool address
+  await liquidation.waitForDeployment();
+  console.log("✅ Liquidation deployed to:", liquidation.target);
+
   console.log("\n✅ Deployment Complete!");
   console.log("Deployer:", deployer.address);
   console.log("Tokens:");
@@ -116,6 +157,7 @@ async function main() {
   console.log("InterestRateModel:", interestRateModel.target);
   console.log("LendingPool:", lendingPool.target);
   console.log("PriceOracle:", priceOracle.target);
+  console.log("Liquidation:", liquidation.target);
 }
 
 main()

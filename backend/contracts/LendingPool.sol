@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.13;
 
+import "hardhat/console.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IInterestRateModel {
     function getSupplyRate(uint256 utilization, address token) external view returns (uint256);
+    // function getBorrowRate(uint256 utilization, address token) external view returns (uint256);
 }
 
 contract LendingPool is Ownable, ReentrancyGuard {
@@ -25,11 +27,10 @@ contract LendingPool is Ownable, ReentrancyGuard {
     
     mapping(address => TokenState) public tokenState;
     mapping(address => mapping(address => DepositInfo)) public deposits;
-    mapping(address => bool) public allowedTokens;
     mapping(address => mapping(address => uint256)) public borrows;
 
+    mapping(address => bool) public allowedTokens;
     address[] public supportedTokens;
-    
 
     mapping(address => uint256) public supplyCap;
     mapping(address => uint256) public borrowCap;
@@ -41,11 +42,14 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
     event Deposit(address indexed token, address indexed lender, uint256 amount);
     event Withdraw(address indexed token, address indexed lender, uint256 amount);
+    event Borrow(address indexed token, address indexed borrower, uint256 amount);
+    event Repay(address indexed token, address indexed borrower, uint256 amount);
     event AllowedTokenAdded(address token);
     event AllowedTokenRemoved(address token);
     event AssetConfigSet(address token, uint256 supplyCap, uint256 borrowCap, uint256 maxLTV, uint256 liquidationThreshold, uint256 liquidationPenalty);
 
     constructor(address[] memory _allowedTokens, address _interestModel) Ownable(msg.sender) {
+        require(_interestModel != address(0), "Invalid interest model");
         interestModel = IInterestRateModel(_interestModel);
         for (uint256 i = 0; i < _allowedTokens.length; i++) {
             allowedTokens[_allowedTokens[i]] = true;
@@ -127,6 +131,199 @@ contract LendingPool is Ownable, ReentrancyGuard {
         emit Withdraw(token, msg.sender, amount);
     }
 
+    function getHealthFactor(address user, uint256[] memory tokenPricesUSD) external view returns (uint256 healthFactor) {
+        uint256 totalCollateralValue = 0;
+        uint256 totalBorrowValue = 0;
+
+        require(tokenPricesUSD.length == supportedTokens.length, "Invalid token prices length");
+
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            address token = supportedTokens[i];
+            TokenState storage t = tokenState[token];
+            DepositInfo storage d = deposits[token][user];
+
+            if (t.totalShares > 0) {
+                uint256 userBalance = (d.shares * t.totalDeposits) / t.totalShares;
+                uint256 collateralValue = (userBalance * tokenPricesUSD[i]) / 1e18;
+                uint256 adjustedCollateralValue = (collateralValue * liquidationThreshold[token]) / 1e4; // Apply liquidation threshold
+                totalCollateralValue += adjustedCollateralValue;
+            }
+
+            uint256 userBorrow = borrows[token][user];
+            if (userBorrow > 0) {
+                totalBorrowValue += (userBorrow * tokenPricesUSD[i]) / 1e18;
+            }
+        }
+
+        if (totalBorrowValue == 0) {
+            return type(uint256).max; // No borrows, health factor is infinite
+        }
+
+        healthFactor = (totalCollateralValue * 1e17) / totalBorrowValue;
+    }
+
+    function accrueBorrowInterest(address token) public {
+        TokenState storage t = tokenState[token];
+        uint256 elapsed = block.timestamp - t.lastAccrueTime;
+
+        console.log("Accruing borrow interest for token:", token);
+        console.log("Elapsed time since last accrue:", elapsed);
+        console.log("Total borrows before accrual:", t.totalBorrows);
+
+        if (elapsed == 0 || t.totalBorrows == 0) {
+            console.log("No interest accrued (elapsed == 0 or totalBorrows == 0)");
+            return;
+        }
+
+        uint256 utilization = getUtilization(token);
+        console.log("Utilization:", utilization);
+        // uint256 borrowRate = interestModel.getBorrowRate(utilization, token);
+        uint256 borrowRate = interestModel.getSupplyRate(utilization, token); // Assuming borrow rate is derived similarly
+        console.log("Borrow rate:", borrowRate);
+
+        uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
+        console.log("Rate per second:", ratePerSecond);
+
+        uint256 interestAccrued = (t.totalBorrows * ratePerSecond * elapsed) / 1e18;
+        console.log("Interest accrued:", interestAccrued);
+
+        t.totalBorrows += interestAccrued;
+        t.lastAccrueTime = block.timestamp;
+
+        console.log("Total borrows after accrual:", t.totalBorrows);
+        console.log("Last accrue time updated to:", t.lastAccrueTime);
+    }
+
+    function repay(address token, uint256 amount) external onlyAllowed(token) nonReentrant {
+        require(amount > 0, "Amount must be greater than zero");
+
+        // Accrue interest for the borrower's debt
+        accrueBorrowInterest(token);
+
+        TokenState storage t = tokenState[token];
+        uint256 owed = borrows[token][msg.sender];
+
+        require(owed > 0, "Nothing to repay");
+
+        // Calculate interest dynamically for the borrower's debt
+        uint256 elapsed = block.timestamp - t.lastAccrueTime;
+        if (elapsed > 0) {
+            uint256 utilization = getUtilization(token);
+            // uint256 borrowRate = interestModel.getBorrowRate(utilization, token);
+            uint256 borrowRate = interestModel.getSupplyRate(utilization, token); // Assuming borrow rate is derived similarly
+            uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
+            uint256 interestAccrued = (owed * ratePerSecond * elapsed) / 1e18;
+            owed += interestAccrued;
+        }
+
+        uint256 repayAmount = amount > owed ? owed : amount;
+
+        // Deduct repayment amount from the user's collateral
+        DepositInfo storage userDeposit = deposits[token][msg.sender];
+        uint256 userCollateral = (userDeposit.shares * t.totalDeposits) / t.totalShares;
+        require(userCollateral >= repayAmount, "Insufficient collateral to repay");
+
+        uint256 sharesToDeduct = (repayAmount * t.totalShares) / t.totalDeposits;
+        userDeposit.shares -= sharesToDeduct;
+        t.totalShares -= sharesToDeduct;
+        t.totalDeposits -= repayAmount;
+
+        // Update borrower's debt
+        borrows[token][msg.sender] = owed - repayAmount;
+        t.totalBorrows -= repayAmount;
+
+        emit Repay(token, msg.sender, repayAmount);
+    }
+        
+
+    function borrow(address token, uint256 amount, uint256[] memory tokenPricesUSD) external onlyAllowed(token) nonReentrant {
+        accrueBorrowInterest(token);
+
+        TokenState storage t = tokenState[token];
+        require(t.totalDeposits - t.totalBorrows >= amount, "Not enough liquidity");
+        require(t.totalBorrows + amount <= borrowCap[token], "Exceeds borrow cap");
+
+        require(tokenPricesUSD.length == supportedTokens.length, "Invalid token prices length");
+
+        uint256 totalBorrowableValue = 0;
+
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            address colToken = supportedTokens[i];
+            TokenState storage colState = tokenState[colToken];
+            DepositInfo storage colDeposit = deposits[colToken][msg.sender];
+
+            if (colState.totalShares == 0 || colDeposit.shares == 0) continue;
+
+            uint256 balance = (colDeposit.shares * colState.totalDeposits) / colState.totalShares;
+
+            uint256 collateralValueUSD = (balance * tokenPricesUSD[i]) / 1e18;
+
+            uint256 borrowable = (collateralValueUSD * maxLTV[colToken]) / 1e4;
+
+            totalBorrowableValue += borrowable;
+        }
+
+        uint256 borrowTokenIndex = 0;
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            if (supportedTokens[i] == token) {
+                borrowTokenIndex = i;
+                break;
+            }
+        }
+
+        uint256 borrowTokenPriceUSD = tokenPricesUSD[borrowTokenIndex];
+        uint256 borrowValueUSD = (amount * borrowTokenPriceUSD) / 1e18;
+
+        require(borrowValueUSD <= totalBorrowableValue, "Exceeds collateral-based limit");
+
+        uint256 healthFactor = this.getHealthFactor(msg.sender, tokenPricesUSD);
+        require(healthFactor > 0, "Health factor too low to borrow");
+
+        borrows[token][msg.sender] += amount;
+        t.totalBorrows += amount;
+
+        require(IERC20(token).transfer(msg.sender, amount), "Transfer failed");
+
+        emit Borrow(token, msg.sender, amount);
+    }
+
+
+
+    function repayBalanceOf(address token, address borrower) external returns (uint256) {
+        accrueBorrowInterest(token);
+
+        uint256 owed = borrows[token][borrower];
+        TokenState storage t = tokenState[token];
+
+        if (owed > 0) {
+            uint256 elapsed = block.timestamp - t.lastAccrueTime;
+            uint256 utilization = getUtilization(token);
+            // uint256 borrowRate = interestModel.getSupplyRate(utilization, token);
+            uint256 borrowRate = interestModel.getSupplyRate(utilization, token); // Assuming borrow rate is derived similarly
+
+            uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
+            uint256 interestAccrued = (owed * ratePerSecond * elapsed) / 1e18;
+
+            owed += interestAccrued;
+
+            // Update the borrower's debt with the accrued interest
+            borrows[token][borrower] = owed;
+        }
+
+        return owed;
+    }
+
+    // function repayBalanceOf(address token, address borrower) external returns (uint256) {
+    //    accrueBorrowInterest(token);
+
+    //    TokenState storage t = tokenState[token];
+    //    return borrows[token][borrower] > 0
+    //        ? borrows[token][borrower] + ((borrows[token][borrower] * ((interestModel.getBorrowRate(getUtilization(token), token) * 1e18) / (365 days * 1e4)) * (block.timestamp - t.lastAccrueTime)) / 1e18)
+    //        : 0;
+    //}
+
+    
+
     function balanceOf(address token, address lender) external view returns (uint256) {
         TokenState storage t = tokenState[token];
         DepositInfo storage d = deposits[token][lender];
@@ -135,10 +332,8 @@ contract LendingPool is Ownable, ReentrancyGuard {
         return (d.shares * t.totalDeposits) / t.totalShares;
     }
 
-    function getUserCollateral(address user) external view returns (
-        address[] memory tokens,
-        uint256[] memory balances
-    ) {
+
+    function getUserCollateral(address user) external view returns (address[] memory tokens, uint256[] memory balances) {
         uint256 length = supportedTokens.length;
         tokens = new address[](length);
         balances = new uint256[](length);
@@ -167,7 +362,8 @@ contract LendingPool is Ownable, ReentrancyGuard {
     ) external onlyOwner {
         require(token != address(0), "Invalid token");
         require(_maxLTV <= _liquidationThreshold, "LTV must be <= threshold");
-
+        require(_liquidationPenalty <= 2000, "Penalty too high (max 20%)"); // New check
+        
         supplyCap[token] = _supplyCap;
         borrowCap[token] = _borrowCap;
         maxLTV[token] = _maxLTV;
@@ -178,14 +374,29 @@ contract LendingPool is Ownable, ReentrancyGuard {
     }
 
     function addAllowedToken(address token) external onlyOwner {
+        require(token != address(0), "Invalid token");
         allowedTokens[token] = true;
         supportedTokens.push(token);
+
+        // Initialize token state
+        TokenState storage t = tokenState[token];
+        if (t.lastAccrueTime == 0) {
+            t.lastAccrueTime = block.timestamp;
+        }
+
+        // Set safe default values (50% LTV, 60% threshold, 10% penalty)
+        supplyCap[token] = type(uint256).max;
+        borrowCap[token] = type(uint256).max;
+        maxLTV[token] = 5000;         // 50%
+        liquidationThreshold[token] = 6000; // 60%
+        liquidationPenalty[token] = 1000;   // 10%
+
         emit AllowedTokenAdded(token);
+        emit AssetConfigSet(token, type(uint256).max, type(uint256).max, 5000, 6000, 1000);
     }
 
     function removeAllowedToken(address token) external onlyOwner {
         allowedTokens[token] = false;
-        // Remove the token from supportedTokens
         for (uint256 i = 0; i < supportedTokens.length; i++) {
             if (supportedTokens[i] == token) {
                 supportedTokens[i] = supportedTokens[supportedTokens.length - 1];
@@ -216,6 +427,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
     //         totalSupplied += userBalance;
     //     }
     // }
+
     function getTotalSupplyAPY(address user) external view returns (uint256 totalAPY) {
         uint256 totalValue = 0;
         uint256 weightedAPY = 0;
@@ -238,22 +450,55 @@ contract LendingPool is Ownable, ReentrancyGuard {
         if (totalValue == 0) return 0;
         totalAPY = weightedAPY / totalValue;
     }
-    function getUserBorrow(address user) external view returns (
-        address[] memory tokens,
-        uint256[] memory amounts
-    ) {
+
+    function getUserBorrow(address user) external view returns (address[] memory tokens, uint256[] memory amounts) {
         uint256 length = supportedTokens.length;
         tokens = new address[](length);
         amounts = new uint256[](length);
 
         for (uint256 i = 0; i < length; i++) {
             address token = supportedTokens[i];
-            uint256 borrowed = borrows[token][user];
-
             tokens[i] = token;
-            amounts[i] = borrowed;
+            amounts[i] = borrows[token][user];
         }
     }
 
+    function resetTokenConfig(address token) external onlyOwner {
+        require(allowedTokens[token], "Token not allowed");
+        liquidationPenalty[token] = 1000; // Reset to 10%
+        emit AssetConfigSet(
+            token,
+            supplyCap[token],
+            borrowCap[token],
+            maxLTV[token],
+            liquidationThreshold[token],
+            1000
+        );
+    }
 
+    function getLiquidationParams(address token) external view returns (
+        uint256 penalty,
+        uint256 threshold,
+        uint256 ltv
+    ) {
+        return (
+            liquidationPenalty[token],
+            liquidationThreshold[token],
+            maxLTV[token]
+        );
+    }
+
+    function approveLiquidation(address token, address liquidator, uint256 amount) external onlyOwner {
+        require(allowedTokens[token], "Token not allowed");
+        require(liquidator != address(0), "Invalid liquidator address");
+        require(amount > 0, "Amount must be greater than zero");
+
+        // Approve the Liquidation contract to transfer tokens
+        IERC20(token).approve(liquidator, amount);
+    }
+
+    function getSupportedTokens() external view returns (address[] memory) {
+        return supportedTokens;
+    }
 }
+
