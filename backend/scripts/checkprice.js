@@ -1,6 +1,6 @@
 const { ethers } = require("hardhat");
 
-const ORACLE_ADDRESS = "0x53DE98C53D53C3f7CBd62F73c89d71baE77E0fe5"; 
+const ORACLE_ADDRESS = "0x081e9bF998826311ac9Db9C0AAaADE5eeE903DEd"; 
 
 async function main() {
     const [signer] = await ethers.getSigners();
