@@ -38,13 +38,14 @@ router.get("/preview-health-factor", LendingController.PreviewHealthFactor); // 
 // Borrow and Repay routes
 router.post("/borrow", LendingController.borrow); // allow user to borrow tokens
 router.post("/repay", LendingController.repay); // allow user to repay borrowed tokens
+router.get("/debt",LendingController.getUserDebt); // Get user's total debt for each asset
+router.get("/borrow-apy",LendingController.getBorrowAPY); // Get borrow APY for all assets
+router.get("/borrow-apr",LendingController.getBorrowAPR);  // Get borrow APR for all assets
 
 // Liquidation routes
 router.post("/liquidate", LiquidationController.initiateLiquidation); // Add liquidation route
-router.get(
-  "/liquidation-eligibility",
-  LiquidationController.checkLiquidationEligibility
-); // Check eligibility
+router.get("/liquidation-eligibility",LiquidationController.checkLiquidationEligibility); // Check eligibility
 router.post("/setup-liquidator", LiquidationController.setUpLiquidator); // Setup liquidator
+
 
 module.exports = router;

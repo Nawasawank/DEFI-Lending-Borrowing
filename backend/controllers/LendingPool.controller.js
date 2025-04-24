@@ -1182,7 +1182,91 @@ async getSupplyAPR(req, res) {
       details: err.message
     });
   }
+},
+async getBorrowAPY(req, res) {
+  try {
+    const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+    const results = [];
+
+    for (const token of supportedTokens) {
+      try {
+        const utilization = await LendingPoolContract.methods.getUtilization(token).call();
+        const borrowAPY = await InterestModel.methods.getBorrowAPY(token, utilization).call();
+
+        results.push({
+          asset: token,
+          borrowAPY: (Number(borrowAPY) / 100).toFixed(2) + '%',
+          rawBasisPoints: borrowAPY.toString(),
+          utilization: (Number(utilization) / 100).toFixed(2) + '%'
+        });
+      } catch (innerErr) {
+        results.push({
+          asset: token,
+          error: "Failed to fetch Borrow APY",
+          details: innerErr.message
+        });
+      }
+    }
+
+    return res.status(200).json(results);
+  } catch (err) {
+    return res.status(500).json({
+      error: "Failed to fetch Borrow APYs",
+      details: err.message
+    });
+  }
+},
+
+async getBorrowAPR(req, res) {
+  try {
+    const { tokenAddress } = req.query;
+
+    if (!tokenAddress || !ethers.isAddress(tokenAddress)) {
+      return res.status(400).json({ error: "Invalid or missing token address" });
+    }
+
+    const utilization = await LendingPoolContract.methods.getUtilization(tokenAddress).call();
+    const borrowAPR = await InterestModel.methods.getBorrowRate(tokenAddress, utilization).call();
+
+    return res.status(200).json({
+      asset: tokenAddress,
+      borrowAPR: (Number(borrowAPR) / 100).toFixed(2) + '%',
+      rawBasisPoints: borrowAPR.toString(),
+      utilization: (Number(utilization) / 100).toFixed(2) + '%'
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Failed to fetch borrow APR",
+      details: err.message
+    });
+  }
+},
+async getUserDebt(req, res) {
+  try {
+    const { userAddress, assetAddress } = req.query;
+
+    if (!isAddress(userAddress) || !isAddress(assetAddress)) {
+      return res.status(400).json({ error: 'Invalid address' });
+    }
+
+    const debt = await LendingPoolContract.methods
+      .repayBalanceOf(assetAddress, userAddress)
+      .call();
+
+    return res.status(200).json({
+      user: userAddress,
+      asset: assetAddress,
+      debt: ethers.formatUnits(debt, DEFAULT_DECIMALS),
+      hasDebt: BigInt(debt) > 0n
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: 'Failed to fetch debt',
+      details: err.message
+    });
+  }
 }
+
 
 
 
