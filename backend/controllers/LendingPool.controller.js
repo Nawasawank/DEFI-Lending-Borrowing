@@ -1135,7 +1135,57 @@ async PreviewHealthFactor(req, res) {
         });
     }
 },
-  
+async getSupplyAPR(req, res) {
+  try {
+    const { tokenAddress } = req.query;
+
+    let tokensToQuery = [];
+
+    if (tokenAddress) {
+      if (!ethers.isAddress(tokenAddress)) {
+        return res.status(400).json({ error: "Invalid token address" });
+      }
+      tokensToQuery = [tokenAddress];
+    } else {
+      tokensToQuery = await LendingPoolContract.methods.getSupportedTokens().call();
+    }
+
+    const resultMap = {};
+
+    for (const token of tokensToQuery) {
+      try {
+        const utilization = await LendingPoolContract.methods
+          .getUtilization(token)
+          .call();
+
+        const aprBps = await InterestModel.methods
+          .getSupplyRate(utilization, token)
+          .call();
+
+        resultMap[token] = {
+          supplyAPR: (Number(aprBps) / 100).toFixed(2) + '%',
+          rawBasisPoints: aprBps.toString(),
+          utilization: (Number(utilization) / 100).toFixed(2) + '%'
+        };
+      } catch (innerErr) {
+        resultMap[token] = {
+          error: 'Failed to calculate APR',
+          details: innerErr.message
+        };
+      }
+    }
+
+    return res.status(200).json(resultMap);
+  } catch (err) {
+    return res.status(500).json({
+      error: 'Failed to fetch supply APRs',
+      details: err.message
+    });
+  }
+}
+
+
+
     
 };
 

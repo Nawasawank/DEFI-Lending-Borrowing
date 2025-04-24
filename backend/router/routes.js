@@ -20,7 +20,8 @@ router.get("/available-liquidity", LendingController.getAvailableLiquidity); //g
 router.get("/wallet-balance", LendingController.getUserTokenBalances); //show supply for each user's asset wallet
 
 // router.get('/collateral-supplied',LendingController.getTotalCollateralSupplied) //Total collateral that users supply
-router.get("/apy", LendingController.getSupplyAPY); //get utlization and APY
+router.get("/supply-apy", LendingController.getSupplyAPY); //get utlization and APY
+router.get("/supply-apr",LendingController.getSupplyAPR); //get supply apr
 router.get("/history", LendingController.getUserHistory); //user's history for supply and withdraw
 
 // router.get('/apr-history', LendingController.recordAPRSnapshots);
