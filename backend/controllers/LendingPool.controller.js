@@ -768,44 +768,46 @@ const LendingController = {
 
         const amountInSmallestUnit = ethers.parseUnits(amount.toString(), DEFAULT_DECIMALS).toString();
 
-        // Fetch supported tokens using the updated ABI
-        let supportedTokens;
-        try {
-            supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
-            if (!Array.isArray(supportedTokens) || supportedTokens.length === 0) {
-                return res.status(500).json({ error: "No supported tokens found in the LendingPool contract" });
-            }
-        } catch (err) {
-            console.error("Error fetching supported tokens:", err.message);
-            return res.status(500).json({ error: "Failed to fetch supported tokens", details: err.message });
-        }
+        // Fetch required data in parallel
+        const [supportedTokens, tokenContract, collateral, maxLTVBP, priceData] = await Promise.all([
+            LendingPoolContract.methods.getSupportedTokens().call(),
+            getTokenContract(assetAddress),
+            getTotalCollateralUSD(fromAddress),
+            LendingPoolContract.methods.maxLTV(assetAddress).call(),
+            fetchTokenPrices(Object.values(coingeckoMap))
+        ]);
 
-        // Fetch token prices for health factor calculation
-        const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
-
-        // Fetch token symbol dynamically
-        const tokenContract = getTokenContract(assetAddress);
+        // Validate token prices
         const symbol = await tokenContract.methods.symbol().call();
-        console.log("Token Symbol:", symbol);
-
-        // Check if the symbol exists in coingeckoMap
         const coingeckoID = coingeckoMap[symbol];
-        if (!coingeckoID) {
-            return res.status(400).json({
-                error: `Token symbol ${symbol} is not mapped to CoinGecko`,
-                details: "Add the token to coingeckoMap with its corresponding CoinGecko ID.",
-            });
-        }
-
-        // Fetch price data
-        const priceData = await fetchTokenPrices([coingeckoID]);
-        console.log("Price Data:", priceData);
-
         const priceUSD = priceData[coingeckoID]?.usd;
-        if (!priceUSD) {
+        if (!priceUSD || isNaN(priceUSD)) {
             return res.status(500).json({
                 error: `Unable to fetch price for token: ${assetAddress}`,
                 details: "Ensure the token is mapped correctly in coingeckoMap and the API is reachable.",
+            });
+        }
+
+        // Convert priceData to an array of scaled uint256 prices in the order of supportedTokens
+        const tokenPricesUSD = await Promise.all(
+            supportedTokens.map(async (token) => {
+                const tokenSymbol = await getTokenContract(token).methods.symbol().call();
+                const tokenCoingeckoID = coingeckoMap[tokenSymbol];
+                const price = priceData[tokenCoingeckoID]?.usd || 0;
+                return ethers.parseUnits(price.toFixed(18), 18).toString(); // Scale to uint256
+            })
+        );
+
+        // Calculate max borrowable amount
+        const collateralUSD = parseFloat(collateral.totalCollateralUSD);
+        const maxBorrowableUSD = collateralUSD * (Number(maxLTVBP) / 1000000);
+        const borrowValueUSD = Number(amount) * priceUSD;
+
+        if (borrowValueUSD > maxBorrowableUSD) {
+            return res.status(400).json({
+                error: "Borrow amount exceeds maximum borrowable limit",
+                maxBorrowableUSD: maxBorrowableUSD.toFixed(2),
+                borrowValueUSD: borrowValueUSD.toFixed(2),
             });
         }
 
