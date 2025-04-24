@@ -63,5 +63,28 @@ contract InterestRateModel {
         
         return apy;
     }
+    function getBorrowAPY(address token, uint256 utilization) public view returns (uint256) {
+        uint256 apr = getBorrowRate(token, utilization); 
+        uint256 aprScaled = apr * 1e14;
+
+        uint256 n = 365;
+        uint256 aprPerPeriod = aprScaled / n;
+
+        uint256 base = 1e18 + aprPerPeriod;
+        uint256 result = 1e18;
+        uint256 exponent = n;
+
+        while (exponent > 0) {
+            if (exponent % 2 == 1) {
+                result = (result * base) / 1e18;
+            }
+            base = (base * base) / 1e18;
+            exponent /= 2;
+        }
+
+        uint256 apyScaled = result - 1e18;
+        uint256 apy = apyScaled / 1e14; 
+        return apy;
+}
 
 }
