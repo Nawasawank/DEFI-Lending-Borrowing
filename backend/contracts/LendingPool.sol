@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IInterestRateModel {
     function getSupplyRate(uint256 utilization, address token) external view returns (uint256);
-    // function getBorrowRate(uint256 utilization, address token) external view returns (uint256);
+    function getBorrowRate(address token,uint256 utilization) external view returns (uint256);
 }
 
 contract LendingPool is Ownable, ReentrancyGuard {
@@ -28,6 +28,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
     mapping(address => TokenState) public tokenState;
     mapping(address => mapping(address => DepositInfo)) public deposits;
     mapping(address => mapping(address => uint256)) public borrows;
+    mapping(address => mapping(address => uint256)) public lastBorrowUpdate;
 
     mapping(address => bool) public allowedTokens;
     address[] public supportedTokens;
@@ -177,8 +178,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
         uint256 utilization = getUtilization(token);
         console.log("Utilization:", utilization);
-        // uint256 borrowRate = interestModel.getBorrowRate(utilization, token);
-        uint256 borrowRate = interestModel.getSupplyRate(utilization, token); // Assuming borrow rate is derived similarly
+        uint256 borrowRate = interestModel.getBorrowRate(token,utilization);
         console.log("Borrow rate:", borrowRate);
 
         uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
@@ -197,20 +197,16 @@ contract LendingPool is Ownable, ReentrancyGuard {
     function repay(address token, uint256 amount) external onlyAllowed(token) nonReentrant {
         require(amount > 0, "Amount must be greater than zero");
 
-        // Accrue interest for the borrower's debt
         accrueBorrowInterest(token);
 
         TokenState storage t = tokenState[token];
         uint256 owed = borrows[token][msg.sender];
-
         require(owed > 0, "Nothing to repay");
 
-        // Calculate interest dynamically for the borrower's debt
-        uint256 elapsed = block.timestamp - t.lastAccrueTime;
+        uint256 elapsed = block.timestamp - lastBorrowUpdate[token][msg.sender];
         if (elapsed > 0) {
             uint256 utilization = getUtilization(token);
-            // uint256 borrowRate = interestModel.getBorrowRate(utilization, token);
-            uint256 borrowRate = interestModel.getSupplyRate(utilization, token); // Assuming borrow rate is derived similarly
+            uint256 borrowRate = interestModel.getBorrowRate(token, utilization);
             uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
             uint256 interestAccrued = (owed * ratePerSecond * elapsed) / 1e18;
             owed += interestAccrued;
@@ -218,22 +214,16 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
         uint256 repayAmount = amount > owed ? owed : amount;
 
-        // Deduct repayment amount from the user's collateral
-        DepositInfo storage userDeposit = deposits[token][msg.sender];
-        uint256 userCollateral = (userDeposit.shares * t.totalDeposits) / t.totalShares;
-        require(userCollateral >= repayAmount, "Insufficient collateral to repay");
-
-        uint256 sharesToDeduct = (repayAmount * t.totalShares) / t.totalDeposits;
-        userDeposit.shares -= sharesToDeduct;
-        t.totalShares -= sharesToDeduct;
-        t.totalDeposits -= repayAmount;
-
-        // Update borrower's debt
         borrows[token][msg.sender] = owed - repayAmount;
+        lastBorrowUpdate[token][msg.sender] = block.timestamp;
+
         t.totalBorrows -= repayAmount;
+
+        require(IERC20(token).transferFrom(msg.sender, address(this), repayAmount), "Transfer failed");
 
         emit Repay(token, msg.sender, repayAmount);
     }
+
         
 
     function borrow(address token, uint256 amount, uint256[] memory tokenPricesUSD) external onlyAllowed(token) nonReentrant {
@@ -289,29 +279,20 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
 
 
-    function repayBalanceOf(address token, address borrower) external returns (uint256) {
-        accrueBorrowInterest(token);
-
+    function repayBalanceOf(address token, address borrower) external view returns (uint256) {
         uint256 owed = borrows[token][borrower];
-        TokenState storage t = tokenState[token];
+        if (owed == 0) return 0;
 
-        if (owed > 0) {
-            uint256 elapsed = block.timestamp - t.lastAccrueTime;
-            uint256 utilization = getUtilization(token);
-            // uint256 borrowRate = interestModel.getSupplyRate(utilization, token);
-            uint256 borrowRate = interestModel.getSupplyRate(utilization, token); // Assuming borrow rate is derived similarly
+        uint256 elapsed = block.timestamp - lastBorrowUpdate[token][borrower];
+        uint256 utilization = getUtilization(token);
+        uint256 borrowRate = interestModel.getBorrowRate(token, utilization);
+        uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
+        uint256 interestAccrued = (owed * ratePerSecond * elapsed) / 1e18;
 
-            uint256 ratePerSecond = (borrowRate * 1e18) / (365 days * 1e4);
-            uint256 interestAccrued = (owed * ratePerSecond * elapsed) / 1e18;
-
-            owed += interestAccrued;
-
-            // Update the borrower's debt with the accrued interest
-            borrows[token][borrower] = owed;
-        }
-
-        return owed;
+        return owed + interestAccrued;
     }
+
+
 
     // function repayBalanceOf(address token, address borrower) external returns (uint256) {
     //    accrueBorrowInterest(token);
