@@ -421,38 +421,52 @@ const LendingController = {
     }
 },
 
-  async getLenderCollateral(req, res) {
-    try {
-      const { userAddress } = req.query;
-      if (!isAddress(userAddress)) {
-        return res.status(400).json({ error: 'Invalid address' });
-      }
-      const result = await LendingPoolContract.methods.getUserCollateral(userAddress).call();
-      const tokenAddresses = result[0];
-      const balances = result[1];
-      const results = [];
-      for (let i = 0; i < tokenAddresses.length; i++) {
-        const tokenAddress = tokenAddresses[i];
-        const rawBalance = balances[i];
-        const tokenContract = getTokenContract(tokenAddress);
-        const [symbol, decimals] = await Promise.all([
-          tokenContract.methods.symbol().call(),
-          tokenContract.methods.decimals().call(),
-        ]);
-        results.push({
-          tokenAddress,
-          symbol,
-          balance: ethers.formatUnits(rawBalance.toString(), decimals),
-        });
-      }
-      return res.status(200).json({
-        user: userAddress,
-        collateral: results
-      });
-    } catch (err) {
-      return res.status(500).json({ error: 'Failed to fetch user collateral', details: err.message });
+async getLenderCollateral(req, res) {
+  try {
+    const { userAddress } = req.query;
+    if (!isAddress(userAddress)) {
+      return res.status(400).json({ error: 'Invalid address' });
     }
-  },
+
+    const result = await LendingPoolContract.methods.getUserCollateral(userAddress).call();
+    const tokenAddresses = result[0];
+    const balances = result[1];
+    const results = [];
+
+    for (let i = 0; i < tokenAddresses.length; i++) {
+      const tokenAddress = tokenAddresses[i];
+      const rawBalance = balances[i];
+
+      try {
+        await LendingPoolContract.methods.accrueInterest(tokenAddress).send({ from: userAddress });
+      } catch (accrueErr) {
+        console.warn(`Failed to accrue interest for ${tokenAddress}:`, accrueErr.message);
+        continue; 
+      }
+
+      const tokenContract = getTokenContract(tokenAddress);
+      const [symbol, decimals, updatedBalance] = await Promise.all([
+        tokenContract.methods.symbol().call(),
+        tokenContract.methods.decimals().call(),
+        LendingPoolContract.methods.balanceOf(tokenAddress, userAddress).call()
+      ]);
+
+      results.push({
+        tokenAddress,
+        symbol,
+        balance: ethers.formatUnits(updatedBalance.toString(), decimals),
+        raw: updatedBalance.toString()
+      });
+    }
+
+    return res.status(200).json({
+      user: userAddress,
+      collateral: results
+    });
+  } catch (err) {
+    return res.status(500).json({ error: 'Failed to fetch user collateral', details: err.message });
+  }
+},
 
   async SumAllCollateral(req, res) {
     try {
