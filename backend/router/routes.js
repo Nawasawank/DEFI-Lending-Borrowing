@@ -18,22 +18,30 @@ router.get("/total-supplied", LendingController.getTotalSupplied); //get total s
 router.get("/utilization-rate", LendingController.getUtilizationRate); //get utilization rate of each assets
 router.get("/available-liquidity", LendingController.getAvailableLiquidity); //get utilization rate of each assets
 router.get("/wallet-balance", LendingController.getUserTokenBalances); //show supply for each user's asset wallet
+router.get("/getAssetOverview", LendingController.getAssetOverview); // Get Asset Overview
+router.get("/getBorrowOverview", LendingController.getBorrowOverview);  // Get Borrow Overview
+
 
 // router.get('/collateral-supplied',LendingController.getTotalCollateralSupplied) //Total collateral that users supply
 router.get("/supply-apy", LendingController.getSupplyAPY); //get utlization and APY
 router.get("/supply-apr",LendingController.getSupplyAPR); //get supply apr
 router.get("/history", LendingController.getUserHistory); //user's history for supply and withdraw
+router.get("/netOverview", LendingController.getNetOverview); //get supply APY history
 
 // router.get('/apr-history', LendingController.recordAPRSnapshots);
-router.get("/lender-collateral", LendingController.getLenderCollateral);
-router.get("/sumCollateral", LendingController.SumAllCollateral);
-router.get("/totalAPY", LendingController.TotalAPY);
+router.get("/lender-collateral", LendingController.getLenderCollateral); //get user's collateral for all assets
+router.get("/sumCollateral", LendingController.SumAllCollateral); //Total collateral that users supply in USD
+router.get("/supply-totalAPY", LendingController.TotalAPY);
+router.get("/previewCollateral", LendingController.PreviewCollateralAfterWithdraw); // Preview collateral after withdrawal
 
 router.get("/claimToken", LendingController.claimAllTokensForUser);
 router.get("/MaxWithdraw", LendingController.getMaxWithdrawable);
 router.get("/health-factor", LendingController.getHealthFactor);
 router.get("/MaxBorrow", LendingController.getMaxBorrowable); // Get max borrowable amount for a user and asset
 router.get("/preview-health-factor", LendingController.PreviewHealthFactor); // Preview health factor after borrowing a value
+router.get("/previewRemaingDebt", LendingController.PreviewRemainingDebtAfterRepay); // Preview health factor after supplying a value
+router.get("/borrower-debt", LendingController.getBorrowerDebt); // Preview borrow amount after withdrawal
+router.get("/total-borrowed", LendingController.getTotalBorrowed); // Preview borrow amount after withdrawal
 
 // Borrow and Repay routes
 router.post("/borrow", LendingController.borrow); // allow user to borrow tokens
@@ -41,6 +49,8 @@ router.post("/repay", LendingController.repay); // allow user to repay borrowed 
 router.get("/debt",LendingController.getUserDebt); // Get user's total debt for each asset
 router.get("/borrow-apy",LendingController.getBorrowAPY); // Get borrow APY for all assets
 router.get("/borrow-apr",LendingController.getBorrowAPR);  // Get borrow APR for all assets
+router.get("/total-borrow-apy",LendingController.TotalBorrowAPY); // Get total borrow APY for all assets
+router.get("/sumBorrow", LendingController.SumAllBorrow); // Get liquidation APY for all assets
 
 // Liquidation routes
 router.post("/liquidate", LiquidationController.initiateLiquidation); // Add liquidation route
