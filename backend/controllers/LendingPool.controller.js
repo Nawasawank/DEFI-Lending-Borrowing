@@ -410,7 +410,6 @@ const LendingController = {
     }
   
     try {
-      // Fetch all event types
       const [depositEvents, withdrawEvents, borrowEvents, repayEvents] = await Promise.all([
         LendingPoolContract.getPastEvents("Deposit", {
           filter: { lender: userAddress },
@@ -434,7 +433,6 @@ const LendingController = {
         }),
       ]);
   
-      // Combine and map
       let allEvents = [...depositEvents, ...withdrawEvents, ...borrowEvents, ...repayEvents].map(e => ({
         type: e.event,
         token: e.returnValues.token,
@@ -444,7 +442,6 @@ const LendingController = {
         timestamp: null,
       }));
   
-      // Attach timestamps
       const provider = new ethers.JsonRpcProvider(process.env.PROVIDER_URL);
       const uniqueBlockNumbers = [...new Set(allEvents.map(e => e.blockNumber))];
       const blockTimestamps = {};
@@ -458,7 +455,6 @@ const LendingController = {
         e.timestamp = blockTimestamps[e.blockNumber];
       });
   
-      // Filter by type if provided
       if (type) {
         const validTypes = ['Deposit', 'Withdraw', 'Borrow', 'Repay'];
         if (!validTypes.includes(type)) {
@@ -467,17 +463,14 @@ const LendingController = {
         allEvents = allEvents.filter(e => e.type === type);
       }
   
-      // Filter by date range if provided
       if (startDate || endDate) {
         const start = startDate ? new Date(startDate).getTime() / 1000 : 0;
         const end = endDate ? new Date(endDate).getTime() / 1000 : Number.MAX_SAFE_INTEGER;
         allEvents = allEvents.filter(e => e.timestamp >= start && e.timestamp <= end);
       }
   
-      // Sort descending by block
       allEvents.sort((a, b) => b.blockNumber - a.blockNumber);
   
-      // Pagination
       const startIndex = (page - 1) * limit;
       const paginated = allEvents.slice(startIndex, startIndex + Number(limit));
   
