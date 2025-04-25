@@ -862,37 +862,6 @@ async repay(req, res) {
       return res.status(400).json({ error: 'Invalid amount' });
     }
 
-    // Fetch the user's outstanding debt, including interest
-    let owed;
-    try {
-      owed = await LendingPoolContract.methods
-        .repayBalanceOf(assetAddress, fromAddress)
-        .call();
-      console.log("[Repay] Outstanding debt fetched:", owed);
-    } catch (err) {
-      console.log("[Repay] Failed to fetch repayable balance, falling back to manual calculation:", err.message);
-      const borrows = await LendingPoolContract.methods
-        .getUserBorrow(fromAddress)
-        .call();
-      const tokenIndex = borrows.tokens.indexOf(assetAddress);
-      if (tokenIndex === -1 || BigInt(borrows.amounts[tokenIndex]) === 0n) {
-        console.log("[Repay] Nothing to repay for asset:", assetAddress);
-        return res.status(400).json({
-          error: 'Nothing to repay',
-          outstandingDebt: '0',
-        });
-      }
-      owed = borrows.amounts[tokenIndex];
-    }
-
-    if (BigInt(owed) === 0n) {
-      console.log("[Repay] No outstanding debt for asset:", assetAddress);
-      return res.status(400).json({
-        error: 'Nothing to repay',
-        outstandingDebt: '0',
-      });
-    }
-
     const amountInSmallestUnit = ethers.parseUnits(amount.toString(), DEFAULT_DECIMALS).toString();
     console.log("[Repay] Amount in smallest unit:", amountInSmallestUnit);
 
@@ -932,45 +901,18 @@ async repay(req, res) {
       .send({ from: fromAddress, gas: Math.ceil(Number(gasEstimate) * 1.5) });
     console.log("[Repay] Repayment transaction successful:", tx.transactionHash);
 
-    // Fetch the updated debt after repayment
-    let remainingDebt;
-    try {
-      remainingDebt = await LendingPoolContract.methods
-        .repayBalanceOf(assetAddress, fromAddress)
-        .call();
-      console.log("[Repay] Remaining debt fetched:", remainingDebt);
-    } catch (err) {
-      console.log("[Repay] Failed to fetch remaining debt, falling back to manual calculation:", err.message);
-      const borrows = await LendingPoolContract.methods
-        .getUserBorrow(fromAddress)
-        .call();
-      const tokenIndex = borrows.tokens.indexOf(assetAddress);
-      remainingDebt = tokenIndex !== -1 ? borrows.amounts[tokenIndex] : '0';
-    }
-
-    const remainingFormatted = ethers.formatUnits(remainingDebt.toString(), DEFAULT_DECIMALS);
-    console.log("[Repay] Remaining debt formatted:", remainingFormatted);
-
     return res.status(200).json({
       message: 'Repayment successful',
       transactionHash: tx.transactionHash,
       repaidAmount: amount,
-      remainingDebt: remainingFormatted,
       asset: assetAddress,
     });
   } catch (err) {
     console.error("[Repay] Repayment error:", err);
 
-    if (err.data && err.data.message) {
-      return res.status(500).json({
-        error: 'Repayment failed',
-        details: err.data.message,
-      });
-    }
-
     return res.status(500).json({
       error: 'Repayment failed',
-      details: err.message || 'Unknown error occurred during smart contract execution',
+      details: err?.data?.message || err.message || 'Unknown error',
     });
   }
 },
