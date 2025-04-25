@@ -57,5 +57,7 @@ router.post("/liquidate", LiquidationController.initiateLiquidation); // Add liq
 router.get("/liquidation-eligibility",LiquidationController.checkLiquidationEligibility); // Check eligibility
 router.post("/setup-liquidator", LiquidationController.setUpLiquidator); // Setup liquidator
 
+router.get("/market", LendingController.getMarketOverview); // Get liquidation APY for all assets
+
 
 module.exports = router;

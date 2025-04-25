@@ -403,56 +403,95 @@ const LendingController = {
   },
 
   async getUserHistory(req, res) {
-    const { userAddress } = req.query;
+    const { userAddress, page = 1, limit = 10, type, startDate, endDate } = req.query;
+  
     if (!isAddress(userAddress)) {
-        return res.status(400).json({ error: "Invalid user address" });
+      return res.status(400).json({ error: "Invalid user address" });
     }
+  
     try {
-        const depositEvents = await LendingPoolContract.getPastEvents("Deposit", {
-            filter: { lender: userAddress },
-            fromBlock: 0,
-            toBlock: "latest",
-        });
-        const withdrawEvents = await LendingPoolContract.getPastEvents("Withdraw", {
-            filter: { lender: userAddress },
-            fromBlock: 0,
-            toBlock: "latest",
-        });
-        const borrowEvents = await LendingPoolContract.getPastEvents("Borrow", {
-            filter: { borrower: userAddress },
-            fromBlock: 0,
-            toBlock: "latest",
-        });
-        const repayEvents = await LendingPoolContract.getPastEvents("Repay", {
-            filter: { borrower: userAddress },
-            fromBlock: 0,
-            toBlock: "latest",
-        });
-
-        const allEvents = [...depositEvents, ...withdrawEvents, ...borrowEvents, ...repayEvents];
-        const formatted = allEvents.map((e) => ({
-            type: e.event,
-            token: e.returnValues.token,
-            amount: ethers.formatUnits(e.returnValues.amount.toString(), DEFAULT_DECIMALS),
-            txHash: e.transactionHash,
-            blockNumber: String(e.blockNumber),
-            timestamp: null,
-        }));
-
-        const provider = new ethers.JsonRpcProvider(process.env.PROVIDER_URL);
-        for (const tx of formatted) {
-            const block = await provider.getBlock(Number(tx.blockNumber));
-            tx.timestamp = block.timestamp.toString();
+      // Fetch all event types
+      const [depositEvents, withdrawEvents, borrowEvents, repayEvents] = await Promise.all([
+        LendingPoolContract.getPastEvents("Deposit", {
+          filter: { lender: userAddress },
+          fromBlock: 0,
+          toBlock: "latest",
+        }),
+        LendingPoolContract.getPastEvents("Withdraw", {
+          filter: { lender: userAddress },
+          fromBlock: 0,
+          toBlock: "latest",
+        }),
+        LendingPoolContract.getPastEvents("Borrow", {
+          filter: { borrower: userAddress },
+          fromBlock: 0,
+          toBlock: "latest",
+        }),
+        LendingPoolContract.getPastEvents("Repay", {
+          filter: { borrower: userAddress },
+          fromBlock: 0,
+          toBlock: "latest",
+        }),
+      ]);
+  
+      // Combine and map
+      let allEvents = [...depositEvents, ...withdrawEvents, ...borrowEvents, ...repayEvents].map(e => ({
+        type: e.event,
+        token: e.returnValues.token,
+        amount: ethers.formatUnits(e.returnValues.amount.toString(), DEFAULT_DECIMALS),
+        txHash: e.transactionHash,
+        blockNumber: Number(e.blockNumber),
+        timestamp: null,
+      }));
+  
+      // Attach timestamps
+      const provider = new ethers.JsonRpcProvider(process.env.PROVIDER_URL);
+      const uniqueBlockNumbers = [...new Set(allEvents.map(e => e.blockNumber))];
+      const blockTimestamps = {};
+  
+      for (const blockNum of uniqueBlockNumbers) {
+        const block = await provider.getBlock(blockNum);
+        blockTimestamps[blockNum] = block.timestamp;
+      }
+  
+      allEvents.forEach(e => {
+        e.timestamp = blockTimestamps[e.blockNumber];
+      });
+  
+      // Filter by type if provided
+      if (type) {
+        const validTypes = ['Deposit', 'Withdraw', 'Borrow', 'Repay'];
+        if (!validTypes.includes(type)) {
+          return res.status(400).json({ error: `Invalid type: ${type}` });
         }
-        formatted.sort((a, b) => Number(b.blockNumber) - Number(a.blockNumber));
-        return res.status(200).json({
-            user: userAddress,
-            history: formatted,
-        });
+        allEvents = allEvents.filter(e => e.type === type);
+      }
+  
+      // Filter by date range if provided
+      if (startDate || endDate) {
+        const start = startDate ? new Date(startDate).getTime() / 1000 : 0;
+        const end = endDate ? new Date(endDate).getTime() / 1000 : Number.MAX_SAFE_INTEGER;
+        allEvents = allEvents.filter(e => e.timestamp >= start && e.timestamp <= end);
+      }
+  
+      // Sort descending by block
+      allEvents.sort((a, b) => b.blockNumber - a.blockNumber);
+  
+      // Pagination
+      const startIndex = (page - 1) * limit;
+      const paginated = allEvents.slice(startIndex, startIndex + Number(limit));
+  
+      return res.status(200).json({
+        user: userAddress,
+        page: Number(page),
+        limit: Number(limit),
+        total: allEvents.length,
+        history: paginated,
+      });
     } catch (err) {
-        return res.status(500).json({ error: "Failed to fetch transaction history", details: err.message });
+      return res.status(500).json({ error: "Failed to fetch transaction history", details: err.message });
     }
-},
+  },  
 
 async getLenderCollateral(req, res) {
   try {
