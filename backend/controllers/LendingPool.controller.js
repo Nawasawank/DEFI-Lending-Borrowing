@@ -1853,7 +1853,60 @@ async getTotalBorrowed(req, res) {
       details: err.message
     });
   }
+},
+async getMarketOverview(req, res) {
+  try {
+    const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+
+    let totalSuppliedUSD = 0;
+    let totalBorrowedUSD = 0;
+
+    const symbols = await Promise.all(
+      supportedTokens.map(async token => {
+        const tokenContract = getTokenContract(token);
+        const symbol = await tokenContract.methods.symbol().call();
+        return coingeckoMap[symbol.toUpperCase()];
+      })
+    );
+
+    const prices = await fetchTokenPrices(symbols);
+
+    for (let i = 0; i < supportedTokens.length; i++) {
+      const token = supportedTokens[i];
+      const cgID = symbols[i];
+      const tokenContract = getTokenContract(token);
+
+      const [symbol, decimalsRaw, tokenState] = await Promise.all([
+        tokenContract.methods.symbol().call(),
+        tokenContract.methods.decimals().call(),
+        LendingPoolContract.methods.tokenState(token).call()
+      ]);
+
+      const decimals = Number(decimalsRaw);
+      const priceUSD = prices[cgID]?.usd || 0;
+
+      const supplied = parseFloat(ethers.formatUnits(tokenState.totalDeposits, decimals));
+      const borrowed = parseFloat(ethers.formatUnits(tokenState.totalBorrows, decimals));
+
+      totalSuppliedUSD += supplied * priceUSD;
+      totalBorrowedUSD += borrowed * priceUSD;
+    }
+
+    const totalAvailableUSD = totalSuppliedUSD - totalBorrowedUSD;
+
+    return res.status(200).json({
+      totalMarketSize: `$${totalSuppliedUSD.toFixed(2)}`,
+      totalAvailable: `$${totalAvailableUSD.toFixed(2)}`,
+      totalBorrows: `$${totalBorrowedUSD.toFixed(2)}`
+    });
+  } catch (err) {
+    return res.status(500).json({
+      error: "Failed to fetch market overview",
+      details: err.message
+    });
+  }
 }
+
 
 
 
