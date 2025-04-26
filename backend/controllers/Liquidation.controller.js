@@ -1,4 +1,4 @@
-const { ethers, MaxUint256 } = require("ethers");
+const { ethers } = require("ethers");
 const {
   web3,
   LiquidationContract,
@@ -38,6 +38,10 @@ const ERC20_ABI = [
   },
 ];
 
+// Update parseUnits helper function
+const parseUnits = (val, decimals = 18) =>
+  ethers.parseUnits(val.toString(), decimals);
+
 const LiquidationController = {
   async initiateLiquidation(req, res) {
     try {
@@ -69,7 +73,7 @@ const LiquidationController = {
       try {
         const tokenContract = new web3.eth.Contract(ERC20_ABI, repayToken);
         const decimals = await tokenContract.methods.decimals().call();
-        parsedRepayAmount = ethers.parseUnits(repayAmount.toString(), decimals);
+        parsedRepayAmount = ethers.parseUnits(repayAmount.toString(), decimals); // Updated for ethers v6
       } catch (parseError) {
         return res.status(400).json({
           error: "Amount parsing failed",
@@ -100,12 +104,21 @@ const LiquidationController = {
       let tokenPricesUSD;
       try {
         tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
-        if (tokenPricesUSD.length !== supportedTokens.length) {
-          return res.status(500).json({
-            error: "Invalid token prices length",
-            details: `Expected ${supportedTokens.length}, got ${tokenPricesUSD.length}`,
-          });
-        }
+
+        // Validate and format token prices
+        tokenPricesUSD = tokenPricesUSD.map((price, index) => {
+          if (typeof price !== "string") {
+            price = price.toString(); // Ensure price is a string
+          }
+          const parsedPrice = parseFloat(price);
+          if (isNaN(parsedPrice) || parsedPrice <= 0) {
+            throw new Error(
+              `Invalid token price for token at index ${index}: ${price}`
+            );
+          }
+          console.log(`[DEBUG] Token price for index ${index}:`, parsedPrice);
+          return ethers.parseUnits(parsedPrice.toFixed(18), 18); // Updated for ethers v6
+        });
       } catch (err) {
         console.error("[DEBUG] Error fetching token prices:", err.message);
         return res.status(500).json({
@@ -119,10 +132,15 @@ const LiquidationController = {
         .getHealthFactor(user, tokenPricesUSD)
         .call();
 
+      console.log(
+        "[DEBUG] Health Factor:",
+        ethers.formatUnits(healthFactor, 18) // Updated for ethers v6
+      );
+
       if (BigInt(healthFactor) >= 1e18) {
         return res.status(400).json({
           error: "Position not eligible",
-          healthFactor: ethers.formatUnits(healthFactor, 18),
+          healthFactor: ethers.formatUnits(healthFactor, 18), // Updated for ethers v6
         });
       }
 
@@ -133,10 +151,48 @@ const LiquidationController = {
         .call();
 
       if (BigInt(allowance) < BigInt(parsedRepayAmount)) {
-        return res.status(400).json({
-          error: "Insufficient allowance",
+        console.error("[DEBUG] Insufficient allowance:", {
           required: parsedRepayAmount.toString(),
-          current: allowance.toString(), // Convert BigInt to string
+          current: allowance.toString(),
+        });
+        try {
+          await token.methods
+            .approve(LiquidationContract._address, ethers.MaxUint256.toString()) // Updated for ethers v6
+            .send({ from: fromAddress });
+        } catch (approveError) {
+          return res.status(500).json({
+            error: "Approval failed",
+            details: approveError.message,
+          });
+        }
+      }
+
+      // 8. Collateral balance check
+      let collateralBalance;
+      try {
+        collateralBalance = await LendingPoolContract.methods
+          .getAvailableLiquidity(collateralToken) // Use getAvailableLiquidity from LendingPool.sol
+          .call();
+      } catch (err) {
+        console.error(
+          "[DEBUG] Error fetching collateral balance:",
+          err.message
+        );
+        return res.status(500).json({
+          error: "Failed to fetch collateral balance",
+          details: err.message,
+        });
+      }
+
+      if (BigInt(collateralBalance) < BigInt(parsedRepayAmount)) {
+        console.error("[DEBUG] Insufficient collateral balance:", {
+          required: parsedRepayAmount.toString(),
+          current: collateralBalance.toString(),
+        });
+        return res.status(400).json({
+          error: "Insufficient collateral balance in lending pool",
+          required: parsedRepayAmount.toString(),
+          current: collateralBalance.toString(),
         });
       }
 
@@ -147,7 +203,7 @@ const LiquidationController = {
         collateralToken,
       });
 
-      // 8. Execute liquidation
+      // 9. Execute liquidation
       try {
         const gasEstimate = await LiquidationContract.methods
           .liquidate(
@@ -264,7 +320,7 @@ const LiquidationController = {
         isEligible,
         hasCollateral,
         hasDebt,
-        healthFactor: ethers.formatUnits(healthFactor, 18),
+        healthFactor: ethers.formatUnits(healthFactor, 18), // Updated for ethers v6
         status: isEligible ? "Eligible" : "Not Eligible",
       });
     } catch (err) {
@@ -307,7 +363,7 @@ const LiquidationController = {
 
       // Approve the Liquidation contract to spend the repay token
       const tx = await tokenContract.methods
-        .approve(LiquidationContract._address, MaxUint256.toString())
+        .approve(LiquidationContract._address, ethers.MaxUint256.toString()) // Updated for ethers v6
         .send({ from: liquidator });
 
       return res.status(200).json({
@@ -316,7 +372,7 @@ const LiquidationController = {
         details: {
           liquidator,
           repayToken,
-          approvedAmount: MaxUint256.toString(),
+          approvedAmount: ethers.MaxUint256.toString(), // Updated for ethers v6
         },
       });
     } catch (err) {
