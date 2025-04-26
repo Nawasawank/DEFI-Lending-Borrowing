@@ -989,42 +989,44 @@ async repay(req, res) {
 },
 
 async getHealthFactor(req, res) {
-    try {
-        const { userAddress } = req.query;
+  try {
+      const { userAddress } = req.query;
 
-        if (!isAddress(userAddress)) {
-            return res.status(400).json({ error: 'Invalid user address' });
-        }
+      if (!isAddress(userAddress)) {
+          return res.status(400).json({ error: 'Invalid user address' });
+      }
 
-        // Fetch supported tokens
-        let supportedTokens;
-        try {
-            supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
-            if (!Array.isArray(supportedTokens) || supportedTokens.length === 0) {
-                return res.status(500).json({ error: "No supported tokens found in the LendingPool contract" });
-            }
-        } catch (err) {
-            console.error("Error fetching supported tokens:", err.message);
-            return res.status(500).json({ error: "Failed to fetch supported tokens", details: err.message });
-        }
+      // Fetch supported tokens
+      let supportedTokens;
+      try {
+          supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+          if (!Array.isArray(supportedTokens) || supportedTokens.length === 0) {
+              return res.status(500).json({ error: "No supported tokens found in the LendingPool contract" });
+          }
+      } catch (err) {
+          console.error("Error fetching supported tokens:", err.message);
+          return res.status(500).json({ error: "Failed to fetch supported tokens", details: err.message });
+      }
 
-        // Fetch token prices for health factor calculation
-        const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
+      const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
 
-        // Call the getHealthFactor function with the required parameters
-        const healthFactor = await LendingPoolContract.methods.getHealthFactor(userAddress, tokenPricesUSD).call();
-        const formattedHealthFactor = healthFactor === "0"
-            ? "0" // Handle no borrow case
-            : ethers.formatUnits(healthFactor, 18); // Format as a human-readable number
+      const healthFactor = await LendingPoolContract.methods.getHealthFactor(userAddress, tokenPricesUSD).call();
 
-        return res.status(200).json({
-            user: userAddress,
-            healthFactor: formattedHealthFactor
-        });
-    } catch (err) {
-        console.error("Error fetching health factor:", err.message);
-        return res.status(500).json({ error: 'Failed to fetch health factor', details: err.message });
-    }
+      let formattedHealthFactor;
+      if (healthFactor === "0" || healthFactor === 0) {
+          formattedHealthFactor = "-"; 
+      } else {
+          formattedHealthFactor = ethers.formatUnits(healthFactor, 18); 
+      }
+
+      return res.status(200).json({
+          user: userAddress,
+          healthFactor: formattedHealthFactor
+      });
+  } catch (err) {
+      console.error("Error fetching health factor:", err.message);
+      return res.status(500).json({ error: 'Failed to fetch health factor', details: err.message });
+  }
 },
 
 async getMaxBorrowable(req, res) {
@@ -1276,6 +1278,10 @@ async getUserDebt(req, res) {
       return res.status(400).json({ error: 'Invalid address' });
     }
 
+    // First accrue borrow interest (very important to include up-to-date interest)
+    await LendingPoolContract.methods.accrueBorrowInterest(assetAddress).send({ from: userAddress });
+
+    // Then fetch debt
     const debt = await LendingPoolContract.methods
       .repayBalanceOf(assetAddress, userAddress)
       .call();

@@ -19,6 +19,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
     struct TokenState {
         uint256 totalShares;
+        uint256 totalBorrowShares;
         uint256 totalDeposits;
         uint256 totalBorrows;
         uint256 interestIndex;
@@ -30,6 +31,9 @@ contract LendingPool is Ownable, ReentrancyGuard {
     mapping(address => mapping(address => uint256)) public borrows;
     mapping(address => mapping(address => uint256)) public lastBorrowUpdate;
     mapping(address => mapping(address => uint256)) public userBorrowIndex;
+    mapping(address => mapping(address => uint256)) public borrowShares;
+
+
 
     mapping(address => bool) public allowedTokens;
     address[] public supportedTokens;
@@ -143,17 +147,30 @@ contract LendingPool is Ownable, ReentrancyGuard {
             address token = supportedTokens[i];
             TokenState storage t = tokenState[token];
             DepositInfo storage d = deposits[token][user];
+            uint256 price = tokenPricesUSD[i];
 
-            if (t.totalShares > 0) {
+            if (t.totalShares > 0 && d.shares > 0) {
                 uint256 userBalance = (d.shares * t.totalDeposits) / t.totalShares;
-                uint256 collateralValue = (userBalance * tokenPricesUSD[i]) / 1e18;
-                uint256 adjustedCollateralValue = (collateralValue * liquidationThreshold[token]) / 1e4; // Apply liquidation threshold
+                uint256 collateralValue = (userBalance * price) / 1e18;
+                uint256 adjustedCollateralValue = (collateralValue * liquidationThreshold[token]) / 1e4;
                 totalCollateralValue += adjustedCollateralValue;
             }
 
-            uint256 userBorrow = borrows[token][user];
-            if (userBorrow > 0) {
-                totalBorrowValue += (userBorrow * tokenPricesUSD[i]) / 1e18;
+            uint256 userBorrowShares = borrowShares[token][user];
+            if (userBorrowShares > 0 && t.totalBorrowShares > 0) {
+                uint256 totalBorrows = t.totalBorrows;
+                uint256 elapsed = block.timestamp - t.lastAccrueTime;
+
+                if (elapsed > 0 && totalBorrows > 0) {
+                    uint256 utilization = getUtilization(token);
+                    uint256 borrowRate = interestModel.getBorrowRate(token, utilization);
+                    uint256 ratePerSecond = (borrowRate * 1e14) / (365 days);
+                    uint256 interestFactor = (ratePerSecond * elapsed);
+                    totalBorrows += (totalBorrows * interestFactor) / 1e18;
+                }
+
+                uint256 userDebt = (userBorrowShares * totalBorrows) / t.totalBorrowShares;
+                totalBorrowValue += (userDebt * price) / 1e18;
             }
         }
 
@@ -163,6 +180,7 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
         healthFactor = (totalCollateralValue * 1e17) / totalBorrowValue;
     }
+
 
     function accrueBorrowInterest(address token) public {
         TokenState storage t = tokenState[token];
@@ -189,121 +207,90 @@ contract LendingPool is Ownable, ReentrancyGuard {
     }
 
 
-function repay(address token, uint256 amount) external onlyAllowed(token) nonReentrant {
-    require(amount > 0, "Amount must be greater than zero");
-    
-    accrueBorrowInterest(token);
-    
-    TokenState storage t = tokenState[token];
-    uint256 principal = borrows[token][msg.sender];
-    
-    require(principal > 0, "Nothing to repay");
-    
-    // Calculate current debt with interest
-    uint256 currentDebt = (principal * t.interestIndex) / userBorrowIndex[token][msg.sender];
-    uint256 repayAmount = amount > currentDebt ? currentDebt : amount;
-    
-    // Calculate how much principal is being repaid
-    uint256 principalPayment = (repayAmount * userBorrowIndex[token][msg.sender]) / t.interestIndex;
-    principalPayment = principalPayment > principal ? principal : principalPayment;
-    
-    // Update user's borrow record and index
-    borrows[token][msg.sender] = principal - principalPayment;
-    if (borrows[token][msg.sender] > 0) {
-        userBorrowIndex[token][msg.sender] = t.interestIndex;
-    } else {
-        userBorrowIndex[token][msg.sender] = 0;
-    }
-    
-    // Update total borrows
-    t.totalBorrows = t.totalBorrows > repayAmount ? t.totalBorrows - repayAmount : 0;
-    
-    require(IERC20(token).transferFrom(msg.sender, address(this), repayAmount), "Transfer failed");
-    
-    emit Repay(token, msg.sender, repayAmount);
-}
+    function repay(address token, uint256 amount) external onlyAllowed(token) nonReentrant {
+        require(amount > 0, "Amount must be greater than zero");
 
-function borrow(address token, uint256 amount, uint256[] memory tokenPricesUSD) external onlyAllowed(token) nonReentrant {
-    // Accrue global interest for the token
-    accrueBorrowInterest(token);
+        accrueBorrowInterest(token);
 
-    TokenState storage t = tokenState[token];
-    require(t.totalDeposits - t.totalBorrows >= amount, "Not enough liquidity");
-    require(t.totalBorrows + amount <= borrowCap[token], "Exceeds borrow cap");
-    require(tokenPricesUSD.length == supportedTokens.length, "Invalid token prices length");
+        TokenState storage t = tokenState[token];
+        uint256 userBorrowShares = borrowShares[token][msg.sender];
+        require(userBorrowShares > 0, "Nothing to repay");
 
-    // Calculate collateral and borrowing power
-    uint256 totalBorrowableValue = 0;
-    for (uint256 i = 0; i < supportedTokens.length; i++) {
-        address colToken = supportedTokens[i];
-        TokenState storage colState = tokenState[colToken];
-        DepositInfo storage colDeposit = deposits[colToken][msg.sender];
+        uint256 userDebt = (userBorrowShares * t.totalBorrows) / t.totalBorrowShares;
+        uint256 repayAmount = amount > userDebt ? userDebt : amount;
 
-        if (colState.totalShares == 0 || colDeposit.shares == 0) continue;
+        uint256 shareAmount = (repayAmount * t.totalBorrowShares) / t.totalBorrows;
 
-        uint256 balance = (colDeposit.shares * colState.totalDeposits) / colState.totalShares;
-        uint256 collateralValueUSD = (balance * tokenPricesUSD[i]) / 1e18;
-        uint256 borrowable = (collateralValueUSD * maxLTV[colToken]) / 1e4;
+        borrowShares[token][msg.sender] -= shareAmount;
+        t.totalBorrowShares -= shareAmount;
+        t.totalBorrows -= repayAmount;
 
-        totalBorrowableValue += borrowable;
+        require(IERC20(token).transferFrom(msg.sender, address(this), repayAmount), "Transfer failed");
+
+        emit Repay(token, msg.sender, repayAmount);
     }
 
-    uint256 borrowTokenIndex = 0;
-    for (uint256 i = 0; i < supportedTokens.length; i++) {
-        if (supportedTokens[i] == token) {
-            borrowTokenIndex = i;
-            break;
+
+    function borrow(address token, uint256 amount, uint256[] memory tokenPricesUSD) external onlyAllowed(token) nonReentrant {
+        accrueBorrowInterest(token);
+
+        TokenState storage t = tokenState[token];
+        require(t.totalDeposits - t.totalBorrows >= amount, "Not enough liquidity");
+        require(t.totalBorrows + amount <= borrowCap[token], "Exceeds borrow cap");
+        require(tokenPricesUSD.length == supportedTokens.length, "Invalid token prices length");
+
+        uint256 totalBorrowableValue = 0;
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            address colToken = supportedTokens[i];
+            TokenState storage colState = tokenState[colToken];
+            DepositInfo storage colDeposit = deposits[colToken][msg.sender];
+
+            if (colState.totalShares == 0 || colDeposit.shares == 0) continue;
+
+            uint256 balance = (colDeposit.shares * colState.totalDeposits) / colState.totalShares;
+            uint256 collateralValueUSD = (balance * tokenPricesUSD[i]) / 1e18;
+            uint256 borrowable = (collateralValueUSD * maxLTV[colToken]) / 1e4;
+
+            totalBorrowableValue += borrowable;
         }
+
+        uint256 borrowTokenIndex = 0;
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            if (supportedTokens[i] == token) {
+                borrowTokenIndex = i;
+                break;
+            }
+        }
+
+        uint256 borrowTokenPriceUSD = tokenPricesUSD[borrowTokenIndex];
+        uint256 borrowValueUSD = (amount * borrowTokenPriceUSD) / 1e18;
+        require(borrowValueUSD <= totalBorrowableValue, "Exceeds collateral-based limit");
+
+        uint256 healthFactor = this.getHealthFactor(msg.sender, tokenPricesUSD);
+        require(healthFactor > 0, "Health factor too low");
+
+        uint256 shares = (t.totalBorrowShares == 0 || t.totalBorrows == 0)
+            ? amount
+            : (amount * t.totalBorrowShares) / t.totalBorrows;
+
+        borrowShares[token][msg.sender] += shares;
+        t.totalBorrowShares += shares;
+        t.totalBorrows += amount;
+
+        require(IERC20(token).transfer(msg.sender, amount), "Transfer failed");
+
+        emit Borrow(token, msg.sender, amount);
     }
 
-    uint256 borrowTokenPriceUSD = tokenPricesUSD[borrowTokenIndex];
-    uint256 borrowValueUSD = (amount * borrowTokenPriceUSD) / 1e18;
-    require(borrowValueUSD <= totalBorrowableValue, "Exceeds collateral-based limit");
 
-    uint256 healthFactor = this.getHealthFactor(msg.sender, tokenPricesUSD);
-    require(healthFactor > 0, "Health factor too low to borrow");
+    function repayBalanceOf(address token, address borrower) public view returns (uint256) {
+        TokenState storage t = tokenState[token];
+        uint256 userShares = borrowShares[token][borrower];
 
-    if (borrows[token][msg.sender] > 0) {
-        uint256 currentDebt = (borrows[token][msg.sender] * t.interestIndex) / userBorrowIndex[token][msg.sender];
-        borrows[token][msg.sender] = currentDebt;
+        if (userShares == 0 || t.totalBorrowShares == 0) return 0;
+
+        return (userShares * t.totalBorrows) / t.totalBorrowShares;
     }
-    
-    userBorrowIndex[token][msg.sender] = t.interestIndex;
-    
-    borrows[token][msg.sender] += amount;
-    
-    t.totalBorrows += amount;
-
-    require(IERC20(token).transfer(msg.sender, amount), "Transfer failed");
-
-    emit Borrow(token, msg.sender, amount);
-}
-
-function repayBalanceOf(address token, address borrower) public view returns (uint256) {
-    TokenState storage t = tokenState[token];
-    uint256 borrowAmount = borrows[token][borrower];
-    
-    if (borrowAmount == 0) return 0;
-    
-    if (userBorrowIndex[token][borrower] == 0) return borrowAmount;
-    
-    uint256 currentIndex = t.interestIndex;
-    uint256 elapsedGlobal = block.timestamp - t.lastAccrueTime;
-    
-    if (elapsedGlobal > 0 && t.totalBorrows > 0) {
-        uint256 utilization = getUtilization(token);
-        uint256 borrowRate = interestModel.getBorrowRate(token, utilization);
-        uint256 ratePerSecond = (borrowRate * 1e14) / (365 days);
-        uint256 interestFactor = (ratePerSecond * elapsedGlobal);
-        
-        currentIndex = currentIndex + ((currentIndex * interestFactor) / 1e18);
-    }
-    
-    return (borrowAmount * currentIndex) / userBorrowIndex[token][borrower];
-}
-
-
-
 
     // function repayBalanceOf(address token, address borrower) external returns (uint256) {
     //    accrueBorrowInterest(token);
