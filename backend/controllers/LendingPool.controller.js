@@ -2142,9 +2142,7 @@ async getAllTotalSuppliedAndBorrow(req, res) {
       details: err.message
     });
   }
-}
-
-
+},
 async PreviewHealthFactorBorrow(req, res) {
     try {
         const { userAddress, assetAddress, borrowAmount } = req.query;
