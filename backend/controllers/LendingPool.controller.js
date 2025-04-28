@@ -376,7 +376,7 @@ const LendingController = {
     }
   },  
 
-  async getSupplyAPY(req, res) {
+  async getSupplyAPYandUtilization(req, res) {
     try {
       const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
   
@@ -409,6 +409,40 @@ const LendingController = {
       return res.status(500).json({ error: "Failed to fetch supply APYs", details: err.message });
     }
   },
+  async getSupplyAPY(req, res) {
+    try {
+      const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+  
+      const results = await Promise.all(
+        supportedTokens.map(async (token) => {
+          try {
+            const [utilization, supplyAPY] = await Promise.all([
+              LendingPoolContract.methods.getUtilization(token).call(),
+              InterestModel.methods.getSupplyAPY(token, await LendingPoolContract.methods.getUtilization(token).call()).call()
+            ]);
+  
+            return {
+              asset: token,
+              supplyAPY: (Number(supplyAPY) / 100).toFixed(2) + '%',
+              rawBasisPoints: supplyAPY.toString(),
+            };
+          } catch (innerErr) {
+            console.error(`Failed to get APY for ${token}:`, innerErr.message);
+            return {
+              asset: token,
+              error: "Failed to calculate APY",
+              details: innerErr.message
+            };
+          }
+        })
+      );
+  
+      return res.status(200).json(results);
+    } catch (err) {
+      console.error("Error in getSupplyAPY:", err.message);
+      return res.status(500).json({ error: "Failed to fetch supply APYs", details: err.message });
+    }
+  },    
 
   async getUserHistory(req, res) {
     const { userAddress, page = 1, limit = 10, type, startDate, endDate } = req.query;
@@ -557,6 +591,7 @@ async SumAllCollateral(req, res) {
     if (tokensToProcess.length === 0) {
       return res.status(200).json({ user: userAddress, totalCollateralUSD: "0.00" });
     }
+
 
     await Promise.allSettled(tokensToProcess.map(token =>
       LendingPoolContract.methods.accrueInterest(token).send({ from: userAddress })
@@ -1031,18 +1066,32 @@ async getHealthFactor(req, res) {
 async getMaxBorrowable(req, res) {
   try {
     const { userAddress, assetAddress } = req.query;
+
     if (!isAddress(userAddress) || !isAddress(assetAddress)) {
       return res.status(400).json({ error: 'Invalid address' });
     }
 
     const tokenContract = getTokenContract(assetAddress);
-    const [symbol, decimalsRaw, maxLTVBPRaw] = await Promise.all([
+    const [symbol, decimalsRaw, maxLTVBPRaw, borrowCapRaw, totalBorrowsRaw] = await Promise.all([
       tokenContract.methods.symbol().call(),
       tokenContract.methods.decimals().call(),
-      LendingPoolContract.methods.maxLTV(assetAddress).call()
+      LendingPoolContract.methods.maxLTV(assetAddress).call(),
+      LendingPoolContract.methods.borrowCap(assetAddress).call(),
+      LendingPoolContract.methods.tokenState(assetAddress).call().then(state => state.totalBorrows)
     ]);
 
     const decimals = Number(decimalsRaw);
+    const borrowCap = BigInt(borrowCapRaw);
+    const totalBorrows = BigInt(totalBorrowsRaw);
+
+    if (totalBorrows >= borrowCap) {
+      return res.status(400).json({
+        error: 'Cannot borrow as borrow cap is exceeded',
+        borrowCap: ethers.formatUnits(borrowCap.toString(), decimals),
+        totalBorrows: ethers.formatUnits(totalBorrows.toString(), decimals)
+      });
+    }
+
     const cgID = coingeckoMap[symbol.toUpperCase()];
     if (!cgID) {
       return res.status(400).json({ error: `Symbol ${symbol} is not mapped to a price feed` });
@@ -1064,13 +1113,11 @@ async getMaxBorrowable(req, res) {
     const maxBorrowableAmt = maxBorrowableUSD / priceUSD;
 
     return res.status(200).json({
-      user: userAddress,
       asset: assetAddress,
       symbol,
       maxBorrow: maxBorrowableAmt > 0
         ? maxBorrowableAmt.toFixed(decimals)
         : "0",
-      maxBorrowUSD: maxBorrowableUSD.toFixed(2)
     });
   } catch (err) {
     return res.status(500).json({
@@ -1277,10 +1324,8 @@ async getUserDebt(req, res) {
       return res.status(400).json({ error: 'Invalid address' });
     }
 
-    // First accrue borrow interest (very important to include up-to-date interest)
     await LendingPoolContract.methods.accrueBorrowInterest(assetAddress).send({ from: userAddress });
 
-    // Then fetch debt
     const debt = await LendingPoolContract.methods
       .repayBalanceOf(assetAddress, userAddress)
       .call();
@@ -1544,33 +1589,46 @@ async SumAllBorrow(req, res) {
 async getBorrowerDebt(req, res) {
   try {
     const { userAddress } = req.query;
+
     if (!isAddress(userAddress)) {
       return res.status(400).json({ error: 'Invalid user address' });
     }
 
-    const result = await LendingPoolContract.methods
-      .getUserBorrow(userAddress)
-      .call();
+    const result = await LendingPoolContract.methods.getUserBorrow(userAddress).call();
     const tokenAddresses = result[0];
 
     const debt = await Promise.all(
       tokenAddresses.map(async (tokenAddress) => {
-        const rawDebt = await LendingPoolContract.methods
-          .repayBalanceOf(tokenAddress, userAddress)
-          .call();
-        const raw = rawDebt.toString();
-        const tokenContract = getTokenContract(tokenAddress);
-        const [symbol, decimals] = await Promise.all([
-          tokenContract.methods.symbol().call(),
-          tokenContract.methods.decimals().call(),
-        ]);
-        const balance = ethers.formatUnits(raw, Number(decimals));
-        return {
-          tokenAddress,
-          symbol,
-          balance,
-          raw
-        };
+        try {
+          // Accrue borrow interest first
+          await LendingPoolContract.methods.accrueBorrowInterest(tokenAddress).send({ from: userAddress });
+
+          const rawDebt = await LendingPoolContract.methods.repayBalanceOf(tokenAddress, userAddress).call();
+          const raw = rawDebt.toString();
+          const tokenContract = getTokenContract(tokenAddress);
+
+          const [symbol, decimalsRaw] = await Promise.all([
+            tokenContract.methods.symbol().call(),
+            tokenContract.methods.decimals().call()
+          ]);
+
+          const decimals = Number(decimalsRaw);
+          const balance = ethers.formatUnits(raw, decimals);
+
+          return {
+            tokenAddress,
+            symbol,
+            balance,
+            raw
+          };
+        } catch (innerErr) {
+          console.error(`Failed to fetch debt for ${tokenAddress}:`, innerErr.message);
+          return {
+            tokenAddress,
+            error: 'Failed to fetch debt or accrue interest',
+            details: innerErr.message
+          };
+        }
       })
     );
 
@@ -1578,7 +1636,9 @@ async getBorrowerDebt(req, res) {
       user: userAddress,
       debt
     });
+
   } catch (err) {
+    console.error('Error in getBorrowerDebt:', err.message);
     return res.status(500).json({
       error: 'Failed to fetch user debt details',
       details: err.message
@@ -1936,18 +1996,68 @@ async getMarketOverview(req, res) {
       details: err.message
     });
   }
-}
+},
+async getUserTotalDebtUSD(req, res) {
+  try {
+    const { userAddress } = req.query;
 
+    if (!isAddress(userAddress)) {
+      return res.status(400).json({ error: 'Invalid user address' });
+    }
 
+    const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
 
+    let totalDebtUSD = 0;
 
+    for (const tokenAddress of supportedTokens) {
+      try {
+        // Accrue latest borrow interest
+        await LendingPoolContract.methods.accrueBorrowInterest(tokenAddress).send({ from: userAddress });
 
+        const debtRaw = await LendingPoolContract.methods.repayBalanceOf(tokenAddress, userAddress).call();
+        if (BigInt(debtRaw) === 0n) continue; // No debt, skip
 
+        const tokenContract = getTokenContract(tokenAddress);
 
+        const [symbol, decimalsRaw] = await Promise.all([
+          tokenContract.methods.symbol().call(),
+          tokenContract.methods.decimals().call()
+        ]);
+        const decimals = Number(decimalsRaw);
 
+        const userDebt = parseFloat(ethers.formatUnits(debtRaw.toString(), decimals));
 
+        // Get USD price
+        const cgID = coingeckoMap[symbol.toUpperCase()];
+        if (!cgID) {
+          console.warn(`No Coingecko ID found for ${symbol}, skipping.`);
+          continue;
+        }
 
+        const priceData = await fetchTokenPrices([cgID]);
+        const priceUSD = priceData[cgID]?.usd;
+        if (!priceUSD) {
+          console.warn(`No price found for ${symbol}, skipping.`);
+          continue;
+        }
 
+        // Add to total
+        totalDebtUSD += userDebt * priceUSD;
+      } catch (innerErr) {
+        console.error(`Error processing token ${tokenAddress}:`, innerErr.message);
+      }
+    }
+
+    return res.status(200).json({
+      user: userAddress,
+      totalDebtUSD: totalDebtUSD.toFixed(18)
+    });
+
+  } catch (err) {
+    console.error('Error in getUserTotalDebtUSD:', err.message);
+    return res.status(500).json({ error: 'Failed to fetch total debt', details: err.message });
+  }
+},
 
 };
 

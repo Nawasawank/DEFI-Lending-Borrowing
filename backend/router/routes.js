@@ -23,7 +23,8 @@ router.get("/getBorrowOverview", LendingController.getBorrowOverview);  // Get B
 
 
 // router.get('/collateral-supplied',LendingController.getTotalCollateralSupplied) //Total collateral that users supply
-router.get("/supply-apy", LendingController.getSupplyAPY); //get utlization and APY
+router.get("/supply-apy-utilization", LendingController.getSupplyAPYandUtilization); //get utlization and APY
+router.get("/supply-apy", LendingController.getSupplyAPY);
 router.get("/supply-apr",LendingController.getSupplyAPR); //get supply apr
 router.get("/history", LendingController.getUserHistory); //user's history for supply and withdraw
 router.get("/netOverview", LendingController.getNetOverview); //get supply APY history
@@ -38,7 +39,6 @@ router.get("/claimToken", LendingController.claimAllTokensForUser);
 router.get("/MaxWithdraw", LendingController.getMaxWithdrawable);
 router.get("/health-factor", LendingController.getHealthFactor);
 router.get("/MaxBorrow", LendingController.getMaxBorrowable); // Get max borrowable amount for a user and asset
-router.get("/preview-health-factor", LendingController.PreviewHealthFactor); // Preview health factor after borrowing a value
 router.get("/previewRemaingDebt", LendingController.PreviewRemainingDebtAfterRepay); // Preview health factor after supplying a value
 router.get("/borrower-debt", LendingController.getBorrowerDebt); // Preview borrow amount after withdrawal
 router.get("/total-borrowed", LendingController.getTotalBorrowed); // Preview borrow amount after withdrawal
@@ -47,6 +47,7 @@ router.get("/total-borrowed", LendingController.getTotalBorrowed); // Preview bo
 router.post("/borrow", LendingController.borrow); // allow user to borrow tokens
 router.post("/repay", LendingController.repay); // allow user to repay borrowed tokens
 router.get("/debt",LendingController.getUserDebt); // Get user's total debt for each asset
+router.get("/total-debt", LendingController.getUserTotalDebtUSD); // Get user's total debt for all assets
 router.get("/borrow-apy",LendingController.getBorrowAPY); // Get borrow APY for all assets
 router.get("/borrow-apr",LendingController.getBorrowAPR);  // Get borrow APR for all assets
 router.get("/total-borrow-apy",LendingController.TotalBorrowAPY); // Get total borrow APY for all assets
