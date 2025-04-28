@@ -479,5 +479,97 @@ contract LendingPool is Ownable, ReentrancyGuard {
     function getSupportedTokens() external view returns (address[] memory) {
         return supportedTokens;
     }
+
+    function previewHealthFactorAfterBorrow(
+        address user,
+        address token,
+        uint256 borrowAmount,
+        uint256[] memory tokenPricesUSD
+    ) external view returns (uint256 healthFactor) {
+        uint256 totalCollateralValue = 0;
+        uint256 totalBorrowValue = 0;
+
+        require(tokenPricesUSD.length == supportedTokens.length, "Invalid token prices length");
+
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            address colToken = supportedTokens[i];
+            TokenState storage t = tokenState[colToken];
+            DepositInfo storage d = deposits[colToken][user];
+            uint256 price = tokenPricesUSD[i];
+
+            if (t.totalShares > 0 && d.shares > 0) {
+                uint256 userBalance = (d.shares * t.totalDeposits) / t.totalShares;
+                uint256 collateralValue = (userBalance * price) / 1e18;
+                uint256 adjustedCollateralValue = (collateralValue * liquidationThreshold[colToken]) / 1e4;
+                totalCollateralValue += adjustedCollateralValue;
+            }
+
+            uint256 userBorrowShares = borrowShares[colToken][user];
+            if (userBorrowShares > 0 && t.totalBorrowShares > 0) {
+                uint256 userDebt = (userBorrowShares * t.totalBorrows) / t.totalBorrowShares;
+                totalBorrowValue += (userDebt * price) / 1e18;
+            }
+        }
+
+        uint256 borrowTokenIndex = 0;
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            if (supportedTokens[i] == token) {
+                borrowTokenIndex = i;
+                break;
+            }
+        }
+
+        uint256 borrowTokenPriceUSD = tokenPricesUSD[borrowTokenIndex];
+        uint256 borrowValueUSD = (borrowAmount * borrowTokenPriceUSD) / 1e18;
+        totalBorrowValue += borrowValueUSD;
+
+        if (totalBorrowValue == 0) {
+            return type(uint256).max; // No borrows, health factor is infinite
+        }
+
+        healthFactor = (totalCollateralValue * 1e17) / totalBorrowValue;
+    }
+
+    function previewHealthFactorAfterRepay(
+        address user,
+        address token,
+        uint256 repayAmount,
+        uint256[] memory tokenPricesUSD
+    ) external view returns (uint256 healthFactor) {
+        uint256 totalCollateralValue = 0;
+        uint256 totalBorrowValue = 0;
+
+        require(tokenPricesUSD.length == supportedTokens.length, "Invalid token prices length");
+
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            address colToken = supportedTokens[i];
+            TokenState storage t = tokenState[colToken];
+            DepositInfo storage d = deposits[colToken][user];
+            uint256 price = tokenPricesUSD[i];
+
+            if (t.totalShares > 0 && d.shares > 0) {
+                uint256 userBalance = (d.shares * t.totalDeposits) / t.totalShares;
+                uint256 collateralValue = (userBalance * price) / 1e18;
+                uint256 adjustedCollateralValue = (collateralValue * liquidationThreshold[colToken]) / 1e4;
+                totalCollateralValue += adjustedCollateralValue;
+            }
+
+            uint256 userBorrowShares = borrowShares[colToken][user];
+            if (userBorrowShares > 0 && t.totalBorrowShares > 0) {
+                uint256 userDebt = (userBorrowShares * t.totalBorrows) / t.totalBorrowShares;
+                if (colToken == token) {
+                    uint256 repayValueUSD = (repayAmount * price) / 1e18;
+                    userDebt = userDebt > repayValueUSD ? userDebt - repayValueUSD : 0;
+                }
+                totalBorrowValue += (userDebt * price) / 1e18;
+            }
+        }
+
+        if (totalBorrowValue == 0) {
+            return type(uint256).max; // No borrows, health factor is infinite
+        }
+
+        healthFactor = (totalCollateralValue * 1e17) / totalBorrowValue;
+    }
 }
 

@@ -52,6 +52,8 @@ router.get("/borrow-apy",LendingController.getBorrowAPY); // Get borrow APY for 
 router.get("/borrow-apr",LendingController.getBorrowAPR);  // Get borrow APR for all assets
 router.get("/total-borrow-apy",LendingController.TotalBorrowAPY); // Get total borrow APY for all assets
 router.get("/sumBorrow", LendingController.SumAllBorrow); // Get liquidation APY for all assets
+router.get("/previewhealthfactorborrow", LendingController.PreviewHealthFactorBorrow); // Preview health factor after borrowing
+router.get("/previewhealthfactorrepay", LendingController.PreviewHealthFactorRepay); // Preview health factor after repaying
 
 // Liquidation routes
 router.post("/liquidate", LiquidationController.initiateLiquidation); // Add liquidation route
