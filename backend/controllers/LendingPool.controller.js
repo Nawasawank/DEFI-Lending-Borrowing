@@ -2145,6 +2145,66 @@ async getAllTotalSuppliedAndBorrow(req, res) {
 }
 
 
+async PreviewHealthFactorBorrow(req, res) {
+    try {
+        const { userAddress, assetAddress, borrowAmount } = req.query;
+
+        if (!isAddress(userAddress) || !isAddress(assetAddress)) {
+            return res.status(400).json({ error: 'Invalid address' });
+        }
+
+        if (isNaN(borrowAmount) || Number(borrowAmount) <= 0) {
+            return res.status(400).json({ error: 'Invalid borrow amount' });
+        }
+
+        const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+        const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
+
+        const healthFactor = await LendingPoolContract.methods
+            .previewHealthFactorAfterBorrow(userAddress, assetAddress, borrowAmount, tokenPricesUSD)
+            .call();
+
+        return res.status(200).json({
+            user: userAddress,
+            asset: assetAddress,
+            borrowAmount,
+            healthFactor: ethers.formatUnits(healthFactor, 18)
+        });
+    } catch (err) {
+        return res.status(500).json({ error: 'Failed to preview health factor after borrow', details: err.message });
+    }
+},
+
+async PreviewHealthFactorRepay(req, res) {
+    try {
+        const { userAddress, assetAddress, repayAmount } = req.query;
+
+        if (!isAddress(userAddress) || !isAddress(assetAddress)) {
+            return res.status(400).json({ error: 'Invalid address' });
+        }
+
+        if (isNaN(repayAmount) || Number(repayAmount) <= 0) {
+            return res.status(400).json({ error: 'Invalid repay amount' });
+        }
+
+        const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+        const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
+
+        const healthFactor = await LendingPoolContract.methods
+            .previewHealthFactorAfterRepay(userAddress, assetAddress, repayAmount, tokenPricesUSD)
+            .call();
+
+        return res.status(200).json({
+            user: userAddress,
+            asset: assetAddress,
+            repayAmount,
+            healthFactor: ethers.formatUnits(healthFactor, 18)
+        });
+    } catch (err) {
+        return res.status(500).json({ error: 'Failed to preview health factor after repay', details: err.message });
+    }
+},
+
 };
 
 module.exports = LendingController;
