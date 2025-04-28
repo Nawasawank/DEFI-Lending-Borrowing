@@ -74,8 +74,8 @@ async function main() {
       liquidationPenalty: 1000,
     },
     USDC: {
-      supplyCap: ethers.parseUnits("2000000", 6),
-      borrowCap: ethers.parseUnits("1800000", 6),
+      supplyCap: ethers.parseUnits("2000000"),
+      borrowCap: ethers.parseUnits("1800000"),
       maxLTV: 90000,
       liquidationThreshold: 92500,
       liquidationPenalty: 500,
