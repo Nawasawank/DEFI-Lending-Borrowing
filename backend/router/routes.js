@@ -14,7 +14,7 @@ router.post("/deposit", LendingController.deposit); //allow user to supply their
 router.get("/balance", LendingController.getLenderBalance); //show user balance(which is combine interest) for each assets
 router.get("/asset-config", LendingController.getAssetConfig); //show maxLTV,capacity,liquidation threshold and penalty of each assets
 router.post("/withdraw", LendingController.withdraw); //user withdrawal their collateral
-router.get("/total-supplied", LendingController.getTotalSupplied); //get total supplied of each assets
+router.get("/total-supplied-borrowed", LendingController.getTotalSuppliedAndBorrow); //get total supplied of each assets
 router.get("/utilization-rate", LendingController.getUtilizationRate); //get utilization rate of each assets
 router.get("/available-liquidity", LendingController.getAvailableLiquidity); //get utilization rate of each assets
 router.get("/wallet-balance", LendingController.getUserTokenBalances); //show supply for each user's asset wallet
@@ -38,6 +38,7 @@ router.get("/previewCollateral", LendingController.PreviewCollateralAfterWithdra
 router.get("/claimToken", LendingController.claimAllTokensForUser);
 router.get("/MaxWithdraw", LendingController.getMaxWithdrawable);
 router.get("/health-factor", LendingController.getHealthFactor);
+router.get("/preview-health-factor", LendingController.PreviewHealthFactor); // Preview health factor after supplying a value
 router.get("/MaxBorrow", LendingController.getMaxBorrowable); // Get max borrowable amount for a user and asset
 router.get("/previewRemaingDebt", LendingController.PreviewRemainingDebtAfterRepay); // Preview health factor after supplying a value
 router.get("/borrower-debt", LendingController.getBorrowerDebt); // Preview borrow amount after withdrawal
@@ -60,7 +61,7 @@ router.post("/liquidate", LiquidationController.initiateLiquidation); // Add liq
 router.get("/liquidation-eligibility",LiquidationController.checkLiquidationEligibility); // Check eligibility
 router.post("/setup-liquidator", LiquidationController.setUpLiquidator); // Setup liquidator
 
-router.get("/market", LendingController.getMarketOverview); // Get liquidation APY for all assets
-
+router.get("/market", LendingController.getMarketOverview); 
+router.get("/all-total-supply-borrow", LendingController.getAllTotalSuppliedAndBorrow); // Get market history for all assets
 
 module.exports = router;
