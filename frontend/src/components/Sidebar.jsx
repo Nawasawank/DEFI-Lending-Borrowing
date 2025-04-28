@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import makeBlockie from "ethereum-blockies-base64";
-import '../styles/Sidebar.css';
+import "../styles/Sidebar.css";
 
 // Import PNG icons
 import homeIcon from "../pictures/homeIcon.png";
@@ -17,14 +17,18 @@ const Sidebar = () => {
   const connectWallet = async () => {
     if (window.ethereum) {
       try {
-        const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+        const accounts = await window.ethereum.request({
+          method: "eth_requestAccounts",
+        });
         setAccount(accounts[0]);
         setBlockieSrc(makeBlockie(accounts[0]));
       } catch (error) {
         console.error("Connection rejected:", error);
       }
     } else {
-      alert("MetaMask not detected. Please install it from https://metamask.io/");
+      alert(
+        "MetaMask not detected. Please install it from https://metamask.io/"
+      );
     }
   };
 
@@ -36,7 +40,7 @@ const Sidebar = () => {
     }
 
     if (window.ethereum) {
-      window.ethereum.on('accountsChanged', (accounts) => {
+      window.ethereum.on("accountsChanged", (accounts) => {
         const addr = accounts[0];
         setAccount(addr);
         setBlockieSrc(makeBlockie(addr));
@@ -48,22 +52,28 @@ const Sidebar = () => {
     <div className="sidebar">
       <ul>
         {/* Dashboard */}
-        <li>
-          <img src={homeIcon} alt="Dashboard" className="w-6 h-6" />
-          <Link to="/">Dashboard</Link>
-        </li>
+        <Link to="/">
+          <li>
+            <img src={homeIcon} alt="Dashboard" className="w-6 h-6" />
+            Dashboard
+          </li>
+        </Link>
 
         {/* Market */}
-        <li>
-          <img src={marketIcon} alt="Market" className="w-6 h-6" />
-          <Link to="/market">Market</Link>
-        </li>
+        <Link to="/market">
+          <li>
+            <img src={marketIcon} alt="Market" className="w-6 h-6" />
+            Market
+          </li>
+        </Link>
 
         {/* Risk Alert */}
-        <li>
-          <img src={alertIcon} alt="Risk Alert" className="w-6 h-6" />
-          <Link to="/risk-alert">Risk Alert</Link>
-        </li>
+        <Link to="/risk">
+          <li>
+            <img src={alertIcon} alt="Risk Alert" className="w-6 h-6" />
+            Risk Alert
+          </li>
+        </Link>
 
         {/* Account Section */}
         <li className="account-title">Account Page</li>
@@ -71,7 +81,11 @@ const Sidebar = () => {
         {/* Profile Setting */}
         <li className="user-box">
           <Link to="/profile-settings" className="profile-setting-link">
-            <img src={settingIcon} alt="Settings" style={{ width: '24px', height: '24px' }} />
+            <img
+              src={settingIcon}
+              alt="Settings"
+              style={{ width: "24px", height: "24px" }}
+            />
             <span>Profile Setting</span>
           </Link>
         </li>
@@ -79,7 +93,11 @@ const Sidebar = () => {
         {/* Switch Token */}
         <li className="switch-box">
           <Link to="/switch-token" className="switch-display">
-            <img src={switchIcon} alt="Switch Token" style={{ width: '24px', height: '24px' }} />
+            <img
+              src={switchIcon}
+              alt="Switch Token"
+              style={{ width: "24px", height: "24px" }}
+            />
             <span>Switch Token</span>
           </Link>
         </li>

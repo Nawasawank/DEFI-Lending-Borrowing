@@ -1,14 +1,15 @@
 .dashboard-container {
   display: flex;
   flex-direction: column;
+  padding-right: 50px;
 }
 
 .container {
   display: flex;
-  flex-direction: colum
-  n;
+  flex-direction: column;
   margin-left: 70px;
 }
+
 .upper {
   display: flex;
   flex-direction: row;

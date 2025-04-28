@@ -1,0 +1,83 @@
+.risk-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.risk-container .table-wrapper {
+  padding: 0px 30px;
+  background-color: rgba(255, 255, 255, 0.57);
+  border-radius: 8px;
+  margin-top: 20px;
+  margin-left: 70px;
+}
+
+.risk-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.risk-table th,
+.risk-table td {
+  width: auto;
+  text-align: center;
+  justify-content: center;
+  color: #5e7d8d;
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.risk-table th {
+  border-bottom: 1px solid #5e7d8d;
+  padding: 15px 0px 10px 0px;
+}
+
+.risk-table td {
+  padding: 10px 0px;
+}
+
+.risk-table th:nth-child(1),
+.risk-table td:nth-child(1) {
+  width: 50px;
+}
+
+.risk-table th:nth-child(2) {
+  text-align: left;
+}
+
+.risk-table th:nth-child(3),
+.risk-table td:nth-child(3),
+.risk-table th:nth-child(4),
+.risk-table td:nth-child(4) {
+  /* Last 2 Column */
+  width: 200px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.risk-table .asset {
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  text-align: left;
+  gap: 10px;
+}
+
+.risk-table .alert-button {
+  color: black;
+  width: 70px;
+  font-size: 12px;
+  border-radius: 10px;
+  border: none;
+  background-color: white;
+  box-shadow: 0px 3px 5px rgba(0, 0, 0, 0.3);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.risk-table .alert-icon {
+  width: 15px;
+  height: 15px;
+}

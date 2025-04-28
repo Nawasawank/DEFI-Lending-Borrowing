@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 
 function Market() {
   return (
-    <div className="container">
+    <div className="market-container">
       <Header />
 
       <div className="market-info-container">
@@ -49,9 +49,7 @@ function Market() {
               <td>0 %</td>
               <td>
                 <Link to="/marketdetail">
-                  <button className="view-button">
-                    <ExclamationMarkIcon className="view-icon" />
-                  </button>
+                  <button className="view-button">view</button>
                 </Link>
               </td>
             </tr>
@@ -69,9 +67,7 @@ function Market() {
               <td>0 %</td>
               <td>
                 <Link to="/marketdetail">
-                  <button className="view-button">
-                    <ExclamationMarkIcon className="view-icon" />
-                  </button>
+                  <button className="view-button">view</button>
                 </Link>
               </td>
             </tr>

@@ -1,8 +1,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap");
 
-.container {
+.market-container {
   display: flex;
   flex-direction: column;
+  padding-right: 50px;
 }
 
 .market-info-container {
@@ -11,6 +12,7 @@
   justify-content: space-between;
   gap: 0px 20px;
   margin-top: 20px;
+  margin-left: 70px;
 }
 
 .market-info {
@@ -21,16 +23,17 @@
   color: #5e7d8d;
   background-color: rgba(255, 255, 255, 0.57);
   padding: 10px;
-  border-radius: 8px; /* Rounded corners for each icon box */
+  border-radius: 10px; /* Rounded corners for each icon box */
   box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.5);
   width: 100%;
 }
 
-.table-wrapper {
+.market-container .table-wrapper {
   padding: 0px 30px;
   background-color: rgba(255, 255, 255, 0.57);
   border-radius: 8px;
   margin-top: 20px;
+  margin-left: 70px;
 }
 
 .market-table {
@@ -51,10 +54,15 @@
 
 .market-table th {
   border-bottom: 1px solid #5e7d8d;
+  padding: 15px 0px 10px 0px;
 }
 
-th:nth-child(6),
-td:nth-child(6) {
+.market-table td {
+  padding: 10px 0px;
+}
+
+.market-table th:nth-child(6),
+.market-table td:nth-child(6) {
   /* Button Column */
   width: 100px; /* Adjust width as necessary */
   text-align: center;
@@ -70,16 +78,13 @@ td:nth-child(6) {
 }
 
 .market-table .view-button {
+  color: black;
   width: 50px;
   font-size: 12px;
   border-radius: 6px;
   border: none;
   background-color: white;
+  box-shadow: 0px 3px 5px rgba(0, 0, 0, 0.3);
   margin: 0 auto; /* centers the button in block-level context */
   display: block; /* needed for margin auto to work */
-}
-
-.market-table .view-icon {
-  width: 15px;
-  height: 15px;
 }

@@ -4,23 +4,22 @@
   display: flex;
   flex-direction: column;
   background-color: rgba(19, 19, 19, 0.3); /* Semi-transparent background */
-  padding: 10px 20px; /* Adjust padding for the header */
+  padding: 10px 20px 12px 20px; /* Adjust padding for the header */
   border-radius: 15px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
   color: white;
   font-family: "Ubuntu", sans-serif;
   font-size: 20px;
-  margin-top: 10px;
   position: relative;
 }
 
-.asset {
+.market-header .asset {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.asset .asset-head {
+.market-header .asset-head {
   display: flex;
   flex-direction: row;
   align-items: center;

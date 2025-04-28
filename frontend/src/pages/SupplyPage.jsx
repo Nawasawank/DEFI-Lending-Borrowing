@@ -1,4 +1,3 @@
-
 import React from "react";
 import "../styles/SupplyPage.css";
 
@@ -8,7 +7,9 @@ const SupplyPage = ({ onClose }) => {
       <div className="supply-modal">
         <div className="supply-header">
           <span className="supply-title">Supply xxxx</span>
-          <button className="close-button" onClick={onClose}>×</button>
+          <button className="close-button" onClick={onClose}>
+            ×
+          </button>
         </div>
 
         {/* Amount input section */}
@@ -43,7 +44,10 @@ const SupplyPage = ({ onClose }) => {
 
         {/* Fee display */}
         <div className="fee-display">
-          <span role="img" aria-label="gas">⛽</span> $0.05
+          <span role="img" aria-label="gas">
+            ⛽
+          </span>{" "}
+          $0.05
         </div>
 
         {/* Submit Button */}

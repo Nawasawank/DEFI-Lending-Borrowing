@@ -18,12 +18,12 @@
   width: 100%;
   left: 0;
   position: relative;
-
 }
 
 .main-content {
   padding-left: 20px;
   padding-right: 20px;
+  padding-top: 50px;
   grid-column: 2;
   overflow-y: auto;
   position: relative;
