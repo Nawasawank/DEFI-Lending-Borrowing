@@ -149,7 +149,7 @@ const LendingController = {
     }
   },  
 
-  async withdraw(req, res) {
+  async withdraw(req, res) { 
     try {
       const { fromAddress, assetAddress, amount } = req.body;
   
@@ -175,42 +175,50 @@ const LendingController = {
       }
   
       const tokenContract = getTokenContract(assetAddress);
-      const [symbol, decimals, liquidationThresholdBP] = await Promise.all([
+      const [symbol, decimalsRaw, liquidationThresholdBP] = await Promise.all([
         tokenContract.methods.symbol().call(),
         tokenContract.methods.decimals().call(),
         LendingPoolContract.methods.liquidationThreshold(assetAddress).call()
       ]);
   
-      const priceData = await fetchTokenPrices([coingeckoMap[symbol]]);
-      const priceUSD = priceData[coingeckoMap[symbol]]?.usd;
-
+      const decimals = Number(decimalsRaw);
+      const tokenKey = symbol.toUpperCase();
+  
+      if (!coingeckoMap[tokenKey]) {
+        return res.status(400).json({ error: `Symbol ${symbol} is not mapped to a price feed` });
+      }
+  
+      const priceData = await fetchTokenPrices([coingeckoMap[tokenKey]]);
+      const priceUSD = priceData[coingeckoMap[tokenKey]]?.usd;
+  
       if (!priceUSD) {
         return res.status(500).json({ error: 'Unable to fetch price for token' });
       }
   
-      const { totalCollateralUSD } = await getTotalCollateralUSD(fromAddress);
-  
-      const  { totalBorrowedUSD } = await getTotalBorrowedUSD(fromAddress); 
-      // console.log(totalBorrowedUSD);
-      
+      const balanceHuman = Number(ethers.formatUnits(currentBalance, decimals));
+      const debtRaw = await LendingPoolContract.methods.repayBalanceOf(assetAddress, fromAddress).call();
+      const debtHuman = Number(ethers.formatUnits(debtRaw, decimals));
   
       let maxWithdrawAmount;
-      if (totalBorrowedUSD === "0.00") {
-        maxWithdrawAmount = Number(ethers.formatUnits(currentBalance, DEFAULT_DECIMALS));
+  
+      if (debtHuman === 0) {
+        maxWithdrawAmount = balanceHuman;
       } else {
-        const withdrawableUSD = totalCollateralUSD - totalBorrowedUSD;
-        // console.log("withdrawable",withdrawableUSD);
-        const effectivePrice = priceUSD * (Number(liquidationThresholdBP) / 10000);
-        maxWithdrawAmount = withdrawableUSD / effectivePrice;
+        const liquidationThreshold = Number(liquidationThresholdBP) / 100000;
+        const minCollateralUSD = debtHuman * priceUSD / liquidationThreshold;
+        const balanceUSD = balanceHuman * priceUSD;
+        let availableUSD = balanceUSD - minCollateralUSD;
+        if (availableUSD < 0) availableUSD = 0;
+        maxWithdrawAmount = availableUSD / priceUSD;
       }
   
       if (Number(amount) > maxWithdrawAmount) {
         return res.status(400).json({
           error: 'Requested amount exceeds safe withdrawal limit',
-          maxWithdraw: maxWithdrawAmount.toFixed(6),
+          maxWithdraw: maxWithdrawAmount.toFixed(18),
           priceUSD,
-          liquidationThreshold: (Number(liquidationThresholdBP) / 10000).toFixed(2) + '%',
-          safeToWithdrawAll: totalBorrowedUSD === 0
+          liquidationThreshold: (Number(liquidationThresholdBP) / 1000).toFixed(2) + '%',
+          safeToWithdrawAll: debtHuman === 0
         });
       }
   
@@ -232,7 +240,7 @@ const LendingController = {
     } catch (err) {
       return res.status(500).json({ error: 'Withdrawal failed', details: err.message });
     }
-  },  
+  },    
 
   async getTotalSupplied(req, res) {
     const { assetAddress } = req.query;
@@ -368,7 +376,7 @@ const LendingController = {
     }
   },  
 
-  async getSupplyAPY(req, res) {
+  async getSupplyAPYandUtilization(req, res) {
     try {
       const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
   
@@ -401,6 +409,40 @@ const LendingController = {
       return res.status(500).json({ error: "Failed to fetch supply APYs", details: err.message });
     }
   },
+  async getSupplyAPY(req, res) {
+    try {
+      const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+  
+      const results = await Promise.all(
+        supportedTokens.map(async (token) => {
+          try {
+            const [utilization, supplyAPY] = await Promise.all([
+              LendingPoolContract.methods.getUtilization(token).call(),
+              InterestModel.methods.getSupplyAPY(token, await LendingPoolContract.methods.getUtilization(token).call()).call()
+            ]);
+  
+            return {
+              asset: token,
+              supplyAPY: (Number(supplyAPY) / 100).toFixed(2) + '%',
+              rawBasisPoints: supplyAPY.toString(),
+            };
+          } catch (innerErr) {
+            console.error(`Failed to get APY for ${token}:`, innerErr.message);
+            return {
+              asset: token,
+              error: "Failed to calculate APY",
+              details: innerErr.message
+            };
+          }
+        })
+      );
+  
+      return res.status(200).json(results);
+    } catch (err) {
+      console.error("Error in getSupplyAPY:", err.message);
+      return res.status(500).json({ error: "Failed to fetch supply APYs", details: err.message });
+    }
+  },    
 
   async getUserHistory(req, res) {
     const { userAddress, page = 1, limit = 10, type, startDate, endDate } = req.query;
@@ -533,66 +575,74 @@ async getLenderCollateral(req, res) {
   }
 },
 
-  async SumAllCollateral(req, res) {
-    try {
-      const { userAddress } = req.query;
-      if (!isAddress(userAddress)) {
-        return res.status(400).json({ error: 'Invalid user address' });
-      }
-
-      const result = await LendingPoolContract.methods.getUserCollateral(userAddress).call();
-      const tokenAddresses = result[0];
-      const balances = result[1];
-      let totalUSD = 0;
-      const coinGeckoIDs = new Set();
-      const details = [];
-
-      for (let i = 0; i < tokenAddresses.length; i++) {
-        const tokenAddress = tokenAddresses[i];
-        const rawBalance = balances[i];
-        if (rawBalance === "0") continue;
-        const tokenContract = getTokenContract(tokenAddress);
-        const [symbol, decimals] = await Promise.all([
-          tokenContract.methods.symbol().call(),
-          tokenContract.methods.decimals().call(),
-        ]);
-        const userBalance = parseFloat(
-          ethers.formatUnits(rawBalance.toString(), Number(decimals))
-        );
-        if (userBalance > 0) {
-          details.push({ tokenAddress, symbol, userBalance });
-          const cgID = coingeckoMap[symbol];
-          if (cgID) coinGeckoIDs.add(cgID);
-        }
-      }
-
-      if (details.length === 0) {
-        return res.status(200).json({
-          user: userAddress,
-          totalCollateralUSD: "0.00"
-        });
-      }
-
-      const coinGeckoIDsArray = Array.from(coinGeckoIDs);
-      const prices = await fetchTokenPrices(coinGeckoIDsArray);
-      for (const token of details) {
-        const cgID = coingeckoMap[token.symbol];
-        const priceObj = prices[cgID];
-        if (priceObj && typeof priceObj.usd === "number") {
-          totalUSD += token.userBalance * priceObj.usd;
-        }
-      }
-      return res.status(200).json({
-        user: userAddress,
-        totalCollateralUSD: totalUSD.toFixed(2)
-      });
-    } catch (err) {
-      return res.status(500).json({
-        error: 'Failed to fetch user collateral with prices',
-        details: err.message
-      });
+async SumAllCollateral(req, res) {
+  try {
+    const { userAddress } = req.query;
+    if (!isAddress(userAddress)) {
+      return res.status(400).json({ error: 'Invalid user address' });
     }
-  },
+
+    const { 0: tokenAddresses, 1: balances } = await LendingPoolContract.methods
+      .getUserCollateral(userAddress)
+      .call();
+
+    const tokensToProcess = tokenAddresses.filter((_, i) => balances[i] !== "0");
+
+    if (tokensToProcess.length === 0) {
+      return res.status(200).json({ user: userAddress, totalCollateralUSD: "0.00" });
+    }
+
+
+    await Promise.allSettled(tokensToProcess.map(token =>
+      LendingPoolContract.methods.accrueInterest(token).send({ from: userAddress })
+    ));
+
+    const tokenInfos = await Promise.all(
+      tokensToProcess.map(async (token, i) => {
+        const rawBalance = balances[i];
+        const tokenContract = getTokenContract(token);
+        const [symbol, decimalsRaw] = await Promise.all([
+          tokenContract.methods.symbol().call(),
+          tokenContract.methods.decimals().call()
+        ]);
+        const decimals = Number(decimalsRaw);
+        const userBalance = parseFloat(ethers.formatUnits(rawBalance.toString(), decimals));
+        const cgID = coingeckoMap[symbol.toUpperCase()];
+        if (userBalance > 0 && cgID) {
+          return { cgID, userBalance };
+        }
+        return null;
+      })
+    );
+
+    const validInfos = tokenInfos.filter(Boolean);
+    if (validInfos.length === 0) {
+      return res.status(200).json({ user: userAddress, totalCollateralUSD: "0.00" });
+    }
+
+    const uniqueCgIDs = [...new Set(validInfos.map(i => i.cgID))];
+    const priceMap = await fetchTokenPrices(uniqueCgIDs);
+
+    const totalUSD = validInfos.reduce((sum, { cgID, userBalance }) => {
+      const price = priceMap[cgID]?.usd;
+      if (typeof price === "number") {
+        sum += userBalance * price;
+      }
+      return sum;
+    }, 0);
+
+    return res.status(200).json({
+      user: userAddress,
+      totalCollateralUSD: totalUSD.toFixed(18),
+    });
+  } catch (err) {
+    console.error('Error in SumAllCollateral:', err);
+    return res.status(500).json({
+      error: 'Failed to fetch user collateral with prices',
+      details: err.message
+    });
+  }
+},
   async TotalAPY(req, res) {
     try {
       const { userAddress } = req.query;
@@ -662,6 +712,7 @@ async getLenderCollateral(req, res) {
       });
     }
   },
+
   async getMaxWithdrawable(req, res) {
     try {
       const { userAddress, assetAddress } = req.query;
@@ -670,7 +721,6 @@ async getLenderCollateral(req, res) {
         return res.status(400).json({ error: 'Invalid address' });
       }
   
-      // 1. Get user balance from LendingPool
       const currentBalance = await LendingPoolContract.methods
         .balanceOf(assetAddress, userAddress)
         .call();
@@ -698,71 +748,55 @@ async getLenderCollateral(req, res) {
         return res.status(400).json({ error: `Symbol ${symbol} is not mapped to a price feed` });
       }
   
-      const [priceData, collateral, borrow] = await Promise.all([
-        fetchTokenPrices([coingeckoMap[tokenKey]]),
-        getTotalCollateralUSD(userAddress),
-        getTotalBorrowedUSD(userAddress)
-      ]);
-  
+      // Get price data for the asset being withdrawn
+      const priceData = await fetchTokenPrices([coingeckoMap[tokenKey]]);
       const priceUSD = priceData[coingeckoMap[tokenKey]]?.usd;
       if (!priceUSD || isNaN(priceUSD)) {
         return res.status(500).json({ error: 'Unable to fetch valid price for token' });
       }
   
-      const collateralUSD = parseFloat(collateral.totalCollateralUSD);
-      const borrowedUSD = parseFloat(borrow.totalBorrowedUSD);
+      // Simulate interest accrual for this asset
+      await LendingPoolContract.methods.accrueBorrowInterest(assetAddress).call();
+      
+      // Get the repay balance directly
+      const debt = await LendingPoolContract.methods
+        .repayBalanceOf(assetAddress, userAddress)
+        .call();
+      
+      // Calculate debt in USD
+      const debtAmount = parseFloat(ethers.formatUnits(debt, decimals));
+      const borrowedUSD = debtAmount * priceUSD;
   
-      let maxWithdrawAmount;
+      // Calculate the maximum withdrawable amount
+      const balanceHuman = Number(ethers.formatUnits(currentBalance, decimals));
+      const balanceUSD = balanceHuman * priceUSD;
+      console.log("Balance USD:", balanceUSD);
+      console.log("Borrowed USD:", borrowedUSD);
   
+      let availableUSD;
       if (borrowedUSD === 0) {
-        maxWithdrawAmount = Number(ethers.formatUnits(currentBalance, decimals));
+        availableUSD = balanceUSD;
       } else {
-        const withdrawableUSD = collateralUSD - borrowedUSD;
-        const effectivePrice = priceUSD * (Number(liquidationThresholdBP) / 10000);
-  
-        if (effectivePrice <= 0 || isNaN(effectivePrice)) {
-          return res.status(500).json({ error: 'Invalid effective price for withdrawal calculation' });
-        }
-  
-        maxWithdrawAmount = withdrawableUSD / effectivePrice;
-        if (maxWithdrawAmount < 0) maxWithdrawAmount = 0;
+        availableUSD = balanceUSD - (borrowedUSD / (Number(liquidationThresholdBP) / 100000));
+        console.log(Number(liquidationThresholdBP));
+        
+        if (availableUSD < 0) availableUSD = 0;
       }
+  
+      console.log("Available USD:", availableUSD);
+      const maxWithdrawAmount = availableUSD / priceUSD;
   
       return res.status(200).json({
         user: userAddress,
         asset: assetAddress,
-        maxWithdraw: maxWithdrawAmount.toFixed(6)
+        maxWithdraw: String(maxWithdrawAmount.toFixed(18)),
+        totalBorrowedUSD: borrowedUSD.toFixed(2)
       });
   
     } catch (err) {
       return res.status(500).json({
         error: 'Failed to calculate max withdraw',
         details: err.message
-      });
-    }
-  },
-
-  async getLiquidationParams(req, res) {
-    try {
-      const { assetAddress } = req.query;
-      if (!isAddress(assetAddress)) {
-        return res.status(400).json({ error: 'Invalid token address' });
-      }
-      
-      const params = await LendingPoolContract.methods
-        .getLiquidationParams(assetAddress)
-        .call();
-      
-      return res.status(200).json({
-        asset: assetAddress,
-        liquidationPenalty: (params.penalty / 100).toFixed(2) + '%',
-        liquidationThreshold: (params.threshold / 100).toFixed(2) + '%',
-        maxLTV: (params.ltv / 100).toFixed(2) + '%'
-      });
-    } catch (err) {
-      return res.status(500).json({ 
-        error: 'Failed to fetch liquidation params', 
-        details: err.message 
       });
     }
   },
@@ -1032,18 +1066,32 @@ async getHealthFactor(req, res) {
 async getMaxBorrowable(req, res) {
   try {
     const { userAddress, assetAddress } = req.query;
+
     if (!isAddress(userAddress) || !isAddress(assetAddress)) {
       return res.status(400).json({ error: 'Invalid address' });
     }
 
     const tokenContract = getTokenContract(assetAddress);
-    const [symbol, decimalsRaw, maxLTVBPRaw] = await Promise.all([
+    const [symbol, decimalsRaw, maxLTVBPRaw, borrowCapRaw, totalBorrowsRaw] = await Promise.all([
       tokenContract.methods.symbol().call(),
       tokenContract.methods.decimals().call(),
-      LendingPoolContract.methods.maxLTV(assetAddress).call()
+      LendingPoolContract.methods.maxLTV(assetAddress).call(),
+      LendingPoolContract.methods.borrowCap(assetAddress).call(),
+      LendingPoolContract.methods.tokenState(assetAddress).call().then(state => state.totalBorrows)
     ]);
 
     const decimals = Number(decimalsRaw);
+    const borrowCap = BigInt(borrowCapRaw);
+    const totalBorrows = BigInt(totalBorrowsRaw);
+
+    if (totalBorrows >= borrowCap) {
+      return res.status(400).json({
+        error: 'Cannot borrow as borrow cap is exceeded',
+        borrowCap: ethers.formatUnits(borrowCap.toString(), decimals),
+        totalBorrows: ethers.formatUnits(totalBorrows.toString(), decimals)
+      });
+    }
+
     const cgID = coingeckoMap[symbol.toUpperCase()];
     if (!cgID) {
       return res.status(400).json({ error: `Symbol ${symbol} is not mapped to a price feed` });
@@ -1065,13 +1113,11 @@ async getMaxBorrowable(req, res) {
     const maxBorrowableAmt = maxBorrowableUSD / priceUSD;
 
     return res.status(200).json({
-      user: userAddress,
       asset: assetAddress,
       symbol,
       maxBorrow: maxBorrowableAmt > 0
         ? maxBorrowableAmt.toFixed(decimals)
         : "0",
-      maxBorrowUSD: maxBorrowableUSD.toFixed(2)
     });
   } catch (err) {
     return res.status(500).json({
@@ -1278,10 +1324,8 @@ async getUserDebt(req, res) {
       return res.status(400).json({ error: 'Invalid address' });
     }
 
-    // First accrue borrow interest (very important to include up-to-date interest)
     await LendingPoolContract.methods.accrueBorrowInterest(assetAddress).send({ from: userAddress });
 
-    // Then fetch debt
     const debt = await LendingPoolContract.methods
       .repayBalanceOf(assetAddress, userAddress)
       .call();
@@ -1475,109 +1519,116 @@ async TotalBorrowAPY(req, res) {
 },
 async SumAllBorrow(req, res) {
   try {
-    const { userAddress } = req.query
-    if (!isAddress(userAddress)) {
-      return res.status(400).json({ error: 'Invalid user address' })
-    }
-
-    const result = await LendingPoolContract.methods
-      .getUserBorrow(userAddress)
-      .call()
-    const tokenAddresses = result[0]
-    const rawPrincipals  = result[1]
-
-    const tokensToProcess = []
-    for (let i = 0; i < tokenAddresses.length; i++) {
-      if (rawPrincipals[i] !== "0") {
-        tokensToProcess.push(tokenAddresses[i])
-      }
-    }
-
-    if (tokensToProcess.length === 0) {
-      return res.status(200).json({
-        user: userAddress,
-        totalBorrowUSD: "0.00"
-      })
-    }
-
-    const infos = await Promise.all(tokensToProcess.map(async token => {
-      const rawDebt = await LendingPoolContract.methods
-        .repayBalanceOf(token, userAddress)
-        .call()
-      if (rawDebt === "0") return null
-      const tokenContract = getTokenContract(token)
-      const [symbol, decimals] = await Promise.all([
-        tokenContract.methods.symbol().call(),
-        tokenContract.methods.decimals().call()
-      ])
-      const debtAmount = parseFloat(
-        ethers.formatUnits(rawDebt.toString(), Number(decimals))
-      )
-      const cgID = coingeckoMap[symbol]
-      if (!cgID) return null
-      return { cgID, debtAmount }
-    }))
-
-    const valid = infos.filter(x => x)
-    if (valid.length === 0) {
-      return res.status(200).json({
-        user: userAddress,
-        totalBorrowUSD: "0.00"
-      })
-    }
-
-    const cgIDs = Array.from(new Set(valid.map(i => i.cgID)))
-    const prices = await fetchTokenPrices(cgIDs)
-
-    let totalUSD = 0
-    for (const { cgID, debtAmount } of valid) {
-      const p = prices[cgID]
-      if (p && typeof p.usd === "number") {
-        totalUSD += debtAmount * p.usd
-      }
-    }
-
-    return res.status(200).json({
-      user: userAddress,
-      totalBorrowUSD: totalUSD.toFixed(2)
-    })
-  } catch (err) {
-    return res.status(500).json({
-      error: 'Failed to fetch total borrow USD',
-      details: err.message
-    })
-  }
-},
-async getBorrowerDebt(req, res) {
-  try {
     const { userAddress } = req.query;
     if (!isAddress(userAddress)) {
       return res.status(400).json({ error: 'Invalid user address' });
     }
 
-    const result = await LendingPoolContract.methods
+    const { 0: tokenAddresses, 1: rawPrincipals } = await LendingPoolContract.methods
       .getUserBorrow(userAddress)
       .call();
+
+    const tokensToProcess = tokenAddresses.filter((_, i) => rawPrincipals[i] !== "0");
+
+    if (tokensToProcess.length === 0) {
+      return res.status(200).json({ user: userAddress, totalBorrowUSD: "0.00" });
+    }
+
+    // Accrue borrow interests in parallel but don't await each one individually
+    await Promise.allSettled(tokensToProcess.map(token =>
+      LendingPoolContract.methods.accrueBorrowInterest(token).send({ from: userAddress })
+    ));
+
+    const tokenInfos = await Promise.all(
+      tokensToProcess.map(async token => {
+        const [rawDebt, tokenContract] = await Promise.all([
+          LendingPoolContract.methods.repayBalanceOf(token, userAddress).call(),
+          getTokenContract(token),
+        ]);
+        if (rawDebt === "0") return null;
+        const [symbol, decimalsRaw] = await Promise.all([
+          tokenContract.methods.symbol().call(),
+          tokenContract.methods.decimals().call(),
+        ]);
+        const decimals = Number(decimalsRaw);
+        const debtAmount = parseFloat(ethers.formatUnits(rawDebt.toString(), decimals));
+        const cgID = coingeckoMap[symbol];
+        if (!cgID) return null;
+        return { cgID, debtAmount };
+      })
+    );
+
+    const validInfos = tokenInfos.filter(Boolean);
+    if (validInfos.length === 0) {
+      return res.status(200).json({ user: userAddress, totalBorrowUSD: "0.00" });
+    }
+
+    const uniqueCgIDs = [...new Set(validInfos.map(i => i.cgID))];
+    const priceMap = await fetchTokenPrices(uniqueCgIDs);
+
+    const totalUSD = validInfos.reduce((sum, { cgID, debtAmount }) => {
+      const price = priceMap[cgID]?.usd;
+      if (typeof price === "number") {
+        sum += debtAmount * price;
+      }
+      return sum;
+    }, 0);
+
+    return res.status(200).json({
+      user: userAddress,
+      totalBorrowUSD: totalUSD.toFixed(18),
+    });
+  } catch (err) {
+    console.error('Error in SumAllBorrow:', err);
+    return res.status(500).json({
+      error: 'Failed to fetch total borrow USD',
+      details: err.message,
+    });
+  }
+},
+async getBorrowerDebt(req, res) {
+  try {
+    const { userAddress } = req.query;
+
+    if (!isAddress(userAddress)) {
+      return res.status(400).json({ error: 'Invalid user address' });
+    }
+
+    const result = await LendingPoolContract.methods.getUserBorrow(userAddress).call();
     const tokenAddresses = result[0];
 
     const debt = await Promise.all(
       tokenAddresses.map(async (tokenAddress) => {
-        const rawDebt = await LendingPoolContract.methods
-          .repayBalanceOf(tokenAddress, userAddress)
-          .call();
-        const raw = rawDebt.toString();
-        const tokenContract = getTokenContract(tokenAddress);
-        const [symbol, decimals] = await Promise.all([
-          tokenContract.methods.symbol().call(),
-          tokenContract.methods.decimals().call(),
-        ]);
-        const balance = ethers.formatUnits(raw, Number(decimals));
-        return {
-          tokenAddress,
-          symbol,
-          balance,
-          raw
-        };
+        try {
+          // Accrue borrow interest first
+          await LendingPoolContract.methods.accrueBorrowInterest(tokenAddress).send({ from: userAddress });
+
+          const rawDebt = await LendingPoolContract.methods.repayBalanceOf(tokenAddress, userAddress).call();
+          const raw = rawDebt.toString();
+          const tokenContract = getTokenContract(tokenAddress);
+
+          const [symbol, decimalsRaw] = await Promise.all([
+            tokenContract.methods.symbol().call(),
+            tokenContract.methods.decimals().call()
+          ]);
+
+          const decimals = Number(decimalsRaw);
+          const balance = ethers.formatUnits(raw, decimals);
+
+          return {
+            tokenAddress,
+            symbol,
+            balance,
+            raw
+          };
+        } catch (innerErr) {
+          console.error(`Failed to fetch debt for ${tokenAddress}:`, innerErr.message);
+          return {
+            tokenAddress,
+            error: 'Failed to fetch debt or accrue interest',
+            details: innerErr.message
+          };
+        }
       })
     );
 
@@ -1585,7 +1636,9 @@ async getBorrowerDebt(req, res) {
       user: userAddress,
       debt
     });
+
   } catch (err) {
+    console.error('Error in getBorrowerDebt:', err.message);
     return res.status(500).json({
       error: 'Failed to fetch user debt details',
       details: err.message
@@ -1943,18 +1996,68 @@ async getMarketOverview(req, res) {
       details: err.message
     });
   }
-}
+},
+async getUserTotalDebtUSD(req, res) {
+  try {
+    const { userAddress } = req.query;
 
+    if (!isAddress(userAddress)) {
+      return res.status(400).json({ error: 'Invalid user address' });
+    }
 
+    const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
 
+    let totalDebtUSD = 0;
 
+    for (const tokenAddress of supportedTokens) {
+      try {
+        // Accrue latest borrow interest
+        await LendingPoolContract.methods.accrueBorrowInterest(tokenAddress).send({ from: userAddress });
 
+        const debtRaw = await LendingPoolContract.methods.repayBalanceOf(tokenAddress, userAddress).call();
+        if (BigInt(debtRaw) === 0n) continue; // No debt, skip
 
+        const tokenContract = getTokenContract(tokenAddress);
 
+        const [symbol, decimalsRaw] = await Promise.all([
+          tokenContract.methods.symbol().call(),
+          tokenContract.methods.decimals().call()
+        ]);
+        const decimals = Number(decimalsRaw);
 
+        const userDebt = parseFloat(ethers.formatUnits(debtRaw.toString(), decimals));
 
+        // Get USD price
+        const cgID = coingeckoMap[symbol.toUpperCase()];
+        if (!cgID) {
+          console.warn(`No Coingecko ID found for ${symbol}, skipping.`);
+          continue;
+        }
 
+        const priceData = await fetchTokenPrices([cgID]);
+        const priceUSD = priceData[cgID]?.usd;
+        if (!priceUSD) {
+          console.warn(`No price found for ${symbol}, skipping.`);
+          continue;
+        }
 
+        // Add to total
+        totalDebtUSD += userDebt * priceUSD;
+      } catch (innerErr) {
+        console.error(`Error processing token ${tokenAddress}:`, innerErr.message);
+      }
+    }
+
+    return res.status(200).json({
+      user: userAddress,
+      totalDebtUSD: totalDebtUSD.toFixed(18)
+    });
+
+  } catch (err) {
+    console.error('Error in getUserTotalDebtUSD:', err.message);
+    return res.status(500).json({ error: 'Failed to fetch total debt', details: err.message });
+  }
+},
 
 };
 
