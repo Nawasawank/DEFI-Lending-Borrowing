@@ -8,6 +8,7 @@ function Market() {
     <div className="market-container">
       <Header />
 
+      {/* Market Details */}
       <div className="market-info-container">
         <div className="market-info">
           <p>Total Market Size</p>
@@ -23,6 +24,7 @@ function Market() {
         </div>
       </div>
 
+      {/* Market Table */}
       <div className="table-wrapper">
         <table className="market-table">
           <thead>
@@ -35,6 +37,7 @@ function Market() {
               <th></th>
             </tr>
           </thead>
+
           <tbody>
             <tr>
               <td>

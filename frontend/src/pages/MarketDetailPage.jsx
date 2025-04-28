@@ -12,6 +12,8 @@ function MarketDetail() {
       <div className="detail-container">
         <div className="detail-info">
           <h1>Reserve status & configuration</h1>
+
+          {/* Supply */}
           <div className="info-container">
             <div className="info-upper">
               <p className="bold">Supply Info</p>
@@ -42,6 +44,7 @@ function MarketDetail() {
             </div>
           </div>
 
+          {/* Borrow */}
           <div className="info-container">
             <div className="info-upper">
               <p className="bold">Borrow Info</p>
@@ -69,6 +72,7 @@ function MarketDetail() {
             </div>
           </div>
 
+          {/* Interest Rate */}
           <div className="last-info-container">
             <div className="info-upper">
               <p className="bold">Interest rate model</p>
