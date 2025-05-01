@@ -2202,6 +2202,47 @@ async PreviewHealthFactorRepay(req, res) {
         return res.status(500).json({ error: 'Failed to preview health factor after repay', details: err.message });
     }
 },
+async checkCapsStatus(req, res) {
+  try {
+    const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+
+    const results = await Promise.all(supportedTokens.map(async (assetAddress) => {
+      try {
+        const [tokenState, supplyCapRaw, borrowCapRaw] = await Promise.all([
+          LendingPoolContract.methods.tokenState(assetAddress).call(),
+          LendingPoolContract.methods.supplyCap(assetAddress).call(),
+          LendingPoolContract.methods.borrowCap(assetAddress).call()
+        ]);
+
+        const totalSupplied = BigInt(tokenState.totalDeposits);
+        const totalBorrowed = BigInt(tokenState.totalBorrows);
+        const supplyCap = BigInt(supplyCapRaw);
+        const borrowCap = BigInt(borrowCapRaw);
+
+        return {
+          asset: assetAddress,
+          isSupplyFull: totalSupplied >= supplyCap,
+          isBorrowFull: totalBorrowed >= borrowCap
+        };
+      } catch (tokenErr) {
+        return {
+          asset: assetAddress,
+          isSupplyFull: null,
+          isBorrowFull: null,
+          error: tokenErr.message
+        };
+      }
+    }));
+
+    return res.status(200).json(results);
+  } catch (err) {
+    return res.status(500).json({
+      error: 'Failed to check caps status',
+      details: err.message
+    });
+  }
+}
+
 
 };
 
