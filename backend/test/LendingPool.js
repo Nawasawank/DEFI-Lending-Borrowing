@@ -64,7 +64,7 @@ describe("LendingPool deposit and withdraw with custom InterestRateModel ", func
     expect(balance).to.equal(depositAmount);
 
     const tokenState = await pool.tokenState(tokenAddress);
-    const totalDeposits = tokenState[1];
+    const totalDeposits = tokenState[2];
   
     expect(totalDeposits).to.equal(depositAmount);
   });
@@ -175,8 +175,133 @@ describe("LendingPool deposit and withdraw with custom InterestRateModel ", func
     await pool.connect(user).withdraw(tokenAddress, withdrawAmount);
   
     const tokenState = await pool.tokenState(tokenAddress);
-    const totalDeposits = tokenState[1]; 
+    const totalDeposits = tokenState[2]; 
     expect(totalDeposits).to.equal(depositAmount - withdrawAmount);
   });
   
+});
+
+describe("LendingPool borrow and repay functionality", function () {
+  let owner, user;
+  let token, faucet, pool, interestModel;
+
+  beforeEach(async () => {
+    [owner, user] = await ethers.getSigners();
+
+    const Token = await ethers.getContractFactory("Token");
+    token = await Token.deploy("TestToken", "TTK", parseEther("1000"));
+    await token.waitForDeployment();
+    const tokenAddress = await token.getAddress();
+
+    const Faucet = await ethers.getContractFactory("TokenFaucet");
+    faucet = await Faucet.deploy(tokenAddress);
+    await faucet.waitForDeployment();
+    const faucetAddress = await faucet.getAddress();
+
+    await token.setFaucet(faucetAddress);
+    await faucet.connect(user).claimTokens();
+
+    const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
+    interestModel = await InterestRateModel.deploy();
+    await interestModel.waitForDeployment();
+    const interestModelAddress = await interestModel.getAddress();
+
+    await interestModel.setParams(
+      tokenAddress,
+      200,
+      1000,
+      3000,
+      8000,
+      1000
+    );
+
+    const LendingPool = await ethers.getContractFactory("LendingPool");
+    pool = await LendingPool.deploy([tokenAddress], interestModelAddress);
+    await pool.waitForDeployment();
+    const poolAddress = await pool.getAddress();
+
+    await pool.setAssetConfig(
+      tokenAddress,
+      parseEther("1000000"),
+      parseEther("1000000"),
+      7500,
+      8000,
+      500
+    );
+
+    await token.connect(user).approve(poolAddress, parseEther("100"));
+
+    // Owner provides liquidity
+    await token.approve(poolAddress, parseEther("500"));
+    await pool.deposit(tokenAddress, parseEther("500"));
+  });
+
+  it("should allow user to borrow after depositing collateral", async () => {
+    const tokenAddress = await token.getAddress();
+    await pool.connect(user).deposit(tokenAddress, parseEther("100"));
+
+    const prices = [parseEther("1")];
+    const borrowAmount = parseEther("50");
+
+    await pool.connect(user).borrow(tokenAddress, borrowAmount, prices);
+
+    const debt = await pool.repayBalanceOf(tokenAddress, user.address);
+    expect(debt).to.be.closeTo(borrowAmount, parseEther("0.000001"));
+  });
+
+  it("should fail if user tries to borrow more than allowed by collateral", async () => {
+    const tokenAddress = await token.getAddress();
+    await pool.connect(user).deposit(tokenAddress, parseEther("10"));
+
+    const prices = [parseEther("1")];
+    const borrowAmount = parseEther("20");
+
+    await expect(
+      pool.connect(user).borrow(tokenAddress, borrowAmount, prices)
+    ).to.be.revertedWith("Exceeds collateral-based limit");
+  });
+
+  it("should allow user to repay debt partially", async () => {
+    const tokenAddress = await token.getAddress();
+    await pool.connect(user).deposit(tokenAddress, parseEther("100"));
+
+    const prices = [parseEther("1")];
+    const borrowAmount = parseEther("40");
+    await pool.connect(user).borrow(tokenAddress, borrowAmount, prices);
+
+    await token.connect(user).approve(await pool.getAddress(), parseEther("20"));
+    await pool.connect(user).repay(tokenAddress, parseEther("20"));
+
+    const debt = await pool.repayBalanceOf(tokenAddress, user.address);
+    expect(debt).to.be.closeTo(parseEther("20"), parseEther("0.000001"));
+  });
+
+  it("should allow user to repay entire debt", async () => {
+    const tokenAddress = await token.getAddress();
+    await pool.connect(user).deposit(tokenAddress, parseEther("100"));
+
+    const prices = [parseEther("1")];
+    const borrowAmount = parseEther("30");
+    await pool.connect(user).borrow(tokenAddress, borrowAmount, prices);
+
+    await token.connect(user).approve(await pool.getAddress(), borrowAmount);
+    await pool.connect(user).repay(tokenAddress, borrowAmount);
+
+    const debt = await pool.repayBalanceOf(tokenAddress, user.address);
+    expect(debt).to.be.lte(parseEther("0.0000001"));
+  });
+
+  it("should fail to repay when amount is zero", async () => {
+    const tokenAddress = await token.getAddress();
+    await expect(pool.connect(user).repay(tokenAddress, 0)).to.be.revertedWith("Amount must be greater than zero");
+  });
+
+  it("should fail to repay if user has no borrow", async () => {
+    const tokenAddress = await token.getAddress();
+    await token.connect(user).approve(await pool.getAddress(), parseEther("10"));
+
+    await expect(
+      pool.connect(user).repay(tokenAddress, parseEther("10"))
+    ).to.be.revertedWith("Nothing to repay");
+  });
 });
