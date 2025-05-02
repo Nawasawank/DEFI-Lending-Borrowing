@@ -46,7 +46,6 @@ function Yourborrows() {
                                 <td>{liability.type}</td>
                                 <td>
                                     <div className="button-containerb">
-                                        <Link to="/switch" className="link-buttonb Switch-buttonb">Switch</Link>
                                         <Link to="/repay" className="link-buttonb Repay-buttonb">Repay</Link>
                                     </div>
                                 </td>

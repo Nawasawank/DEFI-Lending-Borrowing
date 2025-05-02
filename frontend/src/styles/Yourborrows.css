@@ -137,7 +137,7 @@ h2 {
     display: flex;
     justify-content: flex-start; /* Adjusts the space between the buttons */
     gap: 15px; /* Adds space between the buttons */
-    margin-left: -10px;
+   
   }
   
   .link-buttonb {

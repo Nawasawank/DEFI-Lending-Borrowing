@@ -1,7 +1,7 @@
 import React from 'react';
 import '../styles/Assetsupplies.css';
 
-const AssetSupplies = ({ onOpenSupply }) => {
+const Assetsupplies = ({ onOpenSupply }) => {
   const assetsData = [
     { name: 'ETH', value: '$1,200', apy: '3.45%', collateral: 'Yes' },
     { name: 'USDC', value: '$5,000', apy: '2.20%', collateral: 'Yes' },
@@ -9,12 +9,12 @@ const AssetSupplies = ({ onOpenSupply }) => {
   ];
 
   return (
-    <div className="asset-container">
-      <div className="asset-header">
+    <div className="assetsupply-container">
+      <div className="supply-header">
         <h2 style={{ color: 'white', marginLeft: '20px' }}>Assets to supply</h2>
       </div>
-      <div className="asset-content">
-        <table className="asset">
+      <div className="supply-content">
+        <table className="as">
           <thead>
             <tr>
               <th>Asset</th>
@@ -29,7 +29,7 @@ const AssetSupplies = ({ onOpenSupply }) => {
               <tr key={index}>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div className="assetsupplies-icon" />
+                    <div className="assetsupply-icon" />
                     <span>{asset.name}</span>
                   </div>
                 </td>
@@ -38,7 +38,7 @@ const AssetSupplies = ({ onOpenSupply }) => {
                 <td>{asset.collateral}</td>
                 <td style={{ textAlign: 'right' }}>
                   <button
-                    className="assetlink-button Supply-button"
+                    className="aslink-button supplyy-button"
                     onClick={() => onOpenSupply(asset)}
                   >
                     Supply
@@ -53,4 +53,4 @@ const AssetSupplies = ({ onOpenSupply }) => {
   );
 };
 
-export default AssetSupplies;
+export default Assetsupplies;

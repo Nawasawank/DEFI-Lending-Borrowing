@@ -127,4 +127,148 @@
   }
   
 
-  
+  @import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap");
+
+.assetsupply-container {
+  width: 500px;
+  height: auto;
+  background: rgba(19, 19, 19, 0.3);
+  padding: auto;
+  border-radius: 10px;
+  font-family: "Ubuntu", sans-serif;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+  margin-top: 25px;
+}
+
+/* Header */
+.supply-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  font-size: 12px;
+  margin-top: 20px;
+  margin-bottom: 5px;
+}
+
+.supply-content {
+  padding: 0px;
+  border-radius: 10px;
+  color: white;
+  width: 470px;
+  display: flex;
+  flex-direction: column;
+  margin-left: 20px;
+  margin-top: -10px;
+}
+
+.as h2 {
+  margin: 0;
+  padding-right: 10px;
+}
+
+/* Info boxes */
+.supply-info-section {
+  display: flex;
+  justify-content: flex-start;
+  font-size: 12px;
+  padding: 8px;
+  gap: 8px;
+}
+
+.supply-info-box {
+  background: white;
+  border-radius: 20px;
+  padding: 10px 10px;
+  font-weight: bold;
+  color: black;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+}
+
+/* Table Styling */
+.as table {
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin-top: 10px;
+  width: 100%;
+  font-family: "Ubuntu", sans-serif;
+}
+
+.as th {
+  border-bottom: 1px solid white;
+  font-size: 13px;
+  text-align: left;
+  padding-bottom: 4px;
+}
+
+.as tbody tr {
+  background: transparent;
+  line-height: 20px;
+}
+
+.as td {
+  font-size: 12px;
+  padding: 6px 0;
+}
+
+/* Optional column widths */
+.as th, .as td {
+  font-size: 12px;
+  padding: 6px 0;
+}
+
+.as th:nth-child(1),
+.as td:nth-child(1) {
+  width: 70px;
+}
+
+.as th:nth-child(2),
+.as td:nth-child(2) {
+  width: 100px;
+}
+
+.as th:nth-child(3),
+.as td:nth-child(3) {
+  width: 70px;
+}
+
+.as th:nth-child(5),
+.as td:nth-child(5) {
+  width: 100px;
+  text-align: right;
+}
+
+/* Asset icon */
+.assetsupply-icon {
+  width: 30px;
+  height: 30px;
+  background-color: white;
+  border-radius: 50%;
+}
+
+/* Buttons */
+.aslink-button {
+  padding: 8px 10px;
+  border-radius: 5px;
+  color: white;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+  cursor: pointer;
+  font-family: "Ubuntu", sans-serif;
+  background-color: #98a4e6;
+}
+
+.aslink-button:hover {
+  background-color: #555;
+  color: #fff;
+}
+
+.supplyy-button {
+  background-color: #98a4e6;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+  font-family: "Ubuntu", sans-serif;
+  font-size: 12px;
+  margin-left: auto;
+}

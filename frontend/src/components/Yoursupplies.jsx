@@ -42,7 +42,6 @@ function Yoursupplies() {
                                 <td>{asset.apy}</td>
                                 <td>
                                     <div className="sbutton-container">
-                                        <Link to="/switch" className="slink-button sSwitch-button">Switch</Link>
                                         <Link to="/withdraw" className="slink-button sWithdraw-button">Withdraw</Link>
                                     </div>
                                 </td>

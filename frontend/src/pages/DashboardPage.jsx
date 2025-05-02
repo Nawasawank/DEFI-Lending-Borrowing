@@ -42,7 +42,17 @@ const Dashboard = () => {
 
       {/* Render Modal Outside */}
       {isSupplyOpen && (
-        <SupplyPage asset={selectedAsset} onClose={handleCloseSupply} />
+        <div className="supply-overlay">
+          <div className="supply-modal">
+          <SupplyPage
+            onClose={handleCloseSupply}
+            tokenName="DAI"
+            apy={3.45}
+            amount={100}
+            ass
+  />
+          </div>
+        </div>
       )}
     </>
   );

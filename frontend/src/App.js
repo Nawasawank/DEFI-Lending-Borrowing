@@ -7,6 +7,8 @@ import MarketDetail from "./pages/MarketDetailPage.jsx";
 import Sidebar from "./components/Sidebar";
 import Risk from "./pages/RiskAlertPage.jsx";
 
+
+
 function App() {
   return (
     <Router>
