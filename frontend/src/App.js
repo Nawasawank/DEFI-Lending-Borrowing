@@ -5,9 +5,6 @@ import DashboardPage from "./pages/DashboardPage.jsx"; // Import the DashboardPa
 import MarketPage from "./pages/MarketPage.jsx";
 import MarketDetail from "./pages/MarketDetailPage.jsx";
 import Sidebar from "./components/Sidebar";
-import Risk from "./pages/RiskAlertPage.jsx";
-
-
 
 function App() {
   return (
@@ -20,9 +17,8 @@ function App() {
               <Route path="/" element={<DashboardPage />} />
               <Route path="/market" element={<MarketPage />} />
               <Route path="/marketdetail" element={<MarketDetail />} />
-              <Route path="/risk" element={<Risk />} />
             </Routes>
-          </div>{" "}
+          </div>
         </div>
       </div>
     </Router>

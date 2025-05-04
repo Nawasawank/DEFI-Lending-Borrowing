@@ -77,6 +77,14 @@
   gap: 10px;
 }
 
+.asset .asset-icon {
+  width: 30px;
+  height: 30px;
+  background-color: white;
+  border-radius: 50%;
+  object-fit: contain;
+}
+
 .market-table .view-button {
   color: black;
   width: 50px;

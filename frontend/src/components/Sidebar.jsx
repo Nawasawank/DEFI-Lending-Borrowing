@@ -68,12 +68,13 @@ const Sidebar = () => {
         </Link>
 
         {/* Risk Alert */}
+        {/*  
         <Link to="/risk">
           <li>
             <img src={alertIcon} alt="Risk Alert" className="w-6 h-6" />
             Risk Alert
           </li>
-        </Link>
+        </Link>*/}
 
         {/* Account Section */}
         <li className="account-title">Account Page</li>
