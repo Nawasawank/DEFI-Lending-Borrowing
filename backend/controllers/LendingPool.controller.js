@@ -1072,14 +1072,16 @@ async getHealthFactor(req, res) {
       const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
 
       const healthFactor = await LendingPoolContract.methods.getHealthFactor(userAddress, tokenPricesUSD).call();
+      
+      const MAX_UINT256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
 
       let formattedHealthFactor;
-      if (healthFactor === "0" || healthFactor === 0) {
-          formattedHealthFactor = "-"; 
+      if (BigInt(healthFactor) === MAX_UINT256) {
+        formattedHealthFactor = "-";
       } else {
-          formattedHealthFactor = ethers.formatUnits(healthFactor, 18); 
+        formattedHealthFactor = ethers.formatUnits(healthFactor, 18);
       }
-
+      
       return res.status(200).json({
           user: userAddress,
           healthFactor: formattedHealthFactor
@@ -1168,90 +1170,112 @@ async getMaxBorrowable(req, res) {
   }
 },
 
-async PreviewHealthFactor(req, res) {
-  try {
-      const { userAddress, assetAddress, borrowAmount } = req.query;
+// async PreviewHealthFactor(req, res) {
+//   try {
+//     const { userAddress, assetAddress, borrowAmount } = req.query;
 
-      if (!isAddress(userAddress) || !isAddress(assetAddress)) {
-          return res.status(400).json({ error: 'Invalid address' });
-      }
-      if (isNaN(borrowAmount) || Number(borrowAmount) <= 0) {
-          return res.status(400).json({ error: 'Invalid borrow amount' });
-      }
+//     if (!isAddress(userAddress) || !isAddress(assetAddress)) {
+//       return res.status(400).json({ error: "Invalid address" });
+//     }
+//     if (isNaN(borrowAmount) || Number(borrowAmount) <= 0) {
+//       return res.status(400).json({ error: "Invalid borrow amount" });
+//     }
 
-      const borrowAmountNum = Number(borrowAmount);
+//     const borrowAmountNum = Number(borrowAmount);
 
-      // Fetch supported tokens and prices
-      const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
-      const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
+//     // Fetch supported tokens and price list (array)
+//     const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+//     const tokenPricesList = await getTokenPricesForHealthFactor(supportedTokens); // array aligned with supportedTokens
 
-      // Fetch current collateral and borrow
-      const totalCollateralData = await getTotalCollateralUSD(userAddress);
-      const totalBorrowedData = await getTotalBorrowedUSD(userAddress);
+//     let totalAdjustedCollateral = 0;
+//     let totalBorrowedUSD = 0;
 
-      let totalAdjustedCollateral = 0;
-      let totalBorrowedUSD = parseFloat(totalBorrowedData.totalBorrowedUSD);
+//     for (let i = 0; i < supportedTokens.length; i++) {
+//       const token = supportedTokens[i];
+//       const priceUSD = tokenPricesList[i] / 1e18; // because your priceutils returns * 1e18
 
-      // For each collateral token, calculate adjusted collateral
-      for (const token of supportedTokens) {
-          const [balanceRaw, liquidationThresholdBP] = await Promise.all([
-              LendingPoolContract.methods.getUserCollateralBalance(userAddress, token).call(),
-              LendingPoolContract.methods.liquidationThreshold(token).call()
-          ]);
+//       const tokenContract = getTokenContract(token);
+//       const [
+//         depositInfo,
+//         tokenState,
+//         liquidationThresholdBP,
+//         decimalsRaw
+//       ] = await Promise.all([
+//         LendingPoolContract.methods.deposits(token, userAddress).call(),
+//         LendingPoolContract.methods.tokenState(token).call(),
+//         LendingPoolContract.methods.liquidationThreshold(token).call(),
+//         tokenContract.methods.decimals().call()
+//       ]);
 
-          if (balanceRaw === "0") continue; // Skip if no balance
+//       const userShares = BigInt(depositInfo.shares);
+//       const totalDeposits = BigInt(tokenState.totalDeposits);
+//       const totalShares = BigInt(tokenState.totalShares);
 
-          const tokenContract = getTokenContract(token);
-          const decimalsRaw = await tokenContract.methods.decimals().call();
-          const decimals = Number(decimalsRaw);
+//       if (userShares === 0n || totalShares === 0n) continue;
 
-          const balance = Number(ethers.formatUnits(balanceRaw.toString(), decimals));
-          const priceUSD = tokenPricesUSD[token];
+//       const balanceRaw = (userShares * totalDeposits) / totalShares;
+//       const decimals = Number(decimalsRaw);
+//       const balance = Number(ethers.formatUnits(balanceRaw.toString(), decimals));
 
-          if (!priceUSD) continue; // Skip if price not found
+//       const collateralUSD = balance * priceUSD;
+//       const adjusted = collateralUSD * (Number(liquidationThresholdBP) / 10000);
+//       totalAdjustedCollateral += adjusted;
 
-          const collateralUSD = balance * priceUSD;
-          const adjusted = collateralUSD * (Number(liquidationThresholdBP) / 10000); // BE CAREFUL: usually liquidationThreshold is 4 decimals (ex: 8500 = 85%)
-          totalAdjustedCollateral += adjusted;
-      }
+//       const borrowSharesRaw = await LendingPoolContract.methods.borrowShares(token, userAddress).call();
+//       const borrowShares = BigInt(borrowSharesRaw);
+//       const totalBorrowShares = BigInt(tokenState.totalBorrowShares);
+//       const totalBorrows = BigInt(tokenState.totalBorrows);
+      
 
-      // Add the **preview borrow** amount
-      const borrowTokenContract = getTokenContract(assetAddress);
-      const borrowSymbol = await borrowTokenContract.methods.symbol().call();
-      const borrowTokenKey = borrowSymbol.toUpperCase();
+//       if (borrowShares > 0n && totalBorrowShares > 0n) {
+//         const userDebt = (borrowShares * totalBorrows) / totalBorrowShares;
+//         const debt = Number(ethers.formatUnits(userDebt.toString(), decimals));
+//         console.log("Debt:", debt, "Price USD:", priceUSD);
+        
+//         totalBorrowedUSD += debt * priceUSD;
+//       }
+//     }
 
-      const borrowPriceUSD = tokenPricesUSD[assetAddress] || tokenPricesUSD[borrowTokenKey];
-      if (!borrowPriceUSD) {
-          return res.status(400).json({ error: `Price not found for borrow asset ${borrowSymbol}` });
-      }
+//     // Get borrow token price
+//     const borrowTokenContract = getTokenContract(assetAddress);
+//     const [symbol, decimalsRaw] = await Promise.all([
+//       borrowTokenContract.methods.symbol().call(),
+//       borrowTokenContract.methods.decimals().call()
+//     ]);
 
-      const additionalBorrowUSD = borrowAmountNum * borrowPriceUSD;
-      const newTotalBorrowedUSD = totalBorrowedUSD + additionalBorrowUSD;
+//     // Try to find borrow token price by index
+//     let borrowTokenIndex = supportedTokens.findIndex(addr => addr.toLowerCase() === assetAddress.toLowerCase());
+//     if (borrowTokenIndex === -1) {
+//       return res.status(400).json({ error: `Borrow asset ${symbol} not found in supportedTokens` });
+//     }
 
-      // Final health factor calculation
-      let newHealthFactor;
-      if (newTotalBorrowedUSD === 0) {
-          newHealthFactor = "Infinity";
-      } else {
-          newHealthFactor = (totalAdjustedCollateral / newTotalBorrowedUSD).toFixed(6);
-      }
+//     const borrowPriceUSD = tokenPricesList[borrowTokenIndex] / 1e18;
+//     const additionalBorrowUSD = borrowAmountNum * borrowPriceUSD;
+//     const newTotalBorrowedUSD = totalBorrowedUSD + additionalBorrowUSD;
 
-      return res.status(200).json({
-          user: userAddress,
-          asset: assetAddress,
-          borrowAmount: borrowAmount.toString(),
-          borrowValueUSD: additionalBorrowUSD.toFixed(2),
-          newHealthFactor
-      });
+//     let newHealthFactor;
+//     if (newTotalBorrowedUSD === 0) {
+//       newHealthFactor = "Infinity";
+//     } else {
+//       newHealthFactor = (totalAdjustedCollateral / newTotalBorrowedUSD).toFixed(6);
+//     }
 
-  } catch (err) {
-      console.error("PreviewHealthFactor error:", err.message);
-      return res.status(500).json({
-          error: 'Failed to preview health factor',
-          details: err.message
-      });
-  }
-},
+//     return res.status(200).json({
+//       user: userAddress,
+//       asset: assetAddress,
+//       borrowAmount: borrowAmount.toString(),
+//       borrowValueUSD: additionalBorrowUSD.toFixed(2),
+//       newHealthFactor
+//     });
+
+//   } catch (err) {
+//     console.error("PreviewHealthFactor error:", err.message);
+//     return res.status(500).json({
+//       error: "Failed to preview health factor",
+//       details: err.message
+//     });
+//   }
+// },
 async getSupplyAPR(req, res) {
   try {
     const { tokenAddress } = req.query;
@@ -2129,7 +2153,6 @@ async getAllTotalSuppliedAndBorrow(req, res) {
         });
       } catch (innerErr) {
         console.error(`Error fetching data for token ${assetAddress}:`, innerErr.message);
-        // You can skip or push an error entry if you want
       }
     }
 
@@ -2144,64 +2167,105 @@ async getAllTotalSuppliedAndBorrow(req, res) {
   }
 },
 async PreviewHealthFactorBorrow(req, res) {
-    try {
-        const { userAddress, assetAddress, borrowAmount } = req.query;
+  try {
+    const { userAddress, assetAddress, borrowAmount } = req.query;
 
-        if (!isAddress(userAddress) || !isAddress(assetAddress)) {
-            return res.status(400).json({ error: 'Invalid address' });
-        }
-
-        if (isNaN(borrowAmount) || Number(borrowAmount) <= 0) {
-            return res.status(400).json({ error: 'Invalid borrow amount' });
-        }
-
-        const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
-        const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
-
-        const healthFactor = await LendingPoolContract.methods
-            .previewHealthFactorAfterBorrow(userAddress, assetAddress, borrowAmount, tokenPricesUSD)
-            .call();
-
-        return res.status(200).json({
-            user: userAddress,
-            asset: assetAddress,
-            borrowAmount,
-            healthFactor: ethers.formatUnits(healthFactor, 18)
-        });
-    } catch (err) {
-        return res.status(500).json({ error: 'Failed to preview health factor after borrow', details: err.message });
+    if (!isAddress(userAddress) || !isAddress(assetAddress)) {
+      return res.status(400).json({ error: 'Invalid address' });
     }
+
+    if (isNaN(borrowAmount) || Number(borrowAmount) <= 0) {
+      return res.status(400).json({ error: 'Invalid borrow amount' });
+    }
+
+    const borrowAmountInSmallestUnit = ethers.parseUnits(borrowAmount.toString(), 18);
+
+    const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+    const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
+
+    const tokenPricesUSDInSmallestUnit = tokenPricesUSD.map(price => {
+      const priceStr = price.toLocaleString("fullwide", { useGrouping: false });
+      return ethers.parseUnits(priceStr, 18).toString();
+    });
+
+    const healthFactor = await LendingPoolContract.methods
+      .previewHealthFactorAfterBorrow(userAddress, assetAddress, borrowAmountInSmallestUnit, tokenPricesUSDInSmallestUnit)
+      .call();
+    
+      const MAX_UINT256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+
+      let formattedHealthFactor;
+      if (BigInt(healthFactor) === MAX_UINT256) {
+        formattedHealthFactor = "-";
+      } else {
+        formattedHealthFactor = ethers.formatUnits(healthFactor, 18);
+      }
+    
+
+    return res.status(200).json({
+      user: userAddress,
+      asset: assetAddress,
+      borrowAmount,
+      healthFactor: formattedHealthFactor
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      error: 'Failed to preview health factor after borrow',
+      details: err.message
+    });
+  }
 },
 
 async PreviewHealthFactorRepay(req, res) {
-    try {
-        const { userAddress, assetAddress, repayAmount } = req.query;
+  try {
+    const { userAddress, assetAddress, repayAmount } = req.query;
 
-        if (!isAddress(userAddress) || !isAddress(assetAddress)) {
-            return res.status(400).json({ error: 'Invalid address' });
-        }
-
-        if (isNaN(repayAmount) || Number(repayAmount) <= 0) {
-            return res.status(400).json({ error: 'Invalid repay amount' });
-        }
-
-        const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
-        const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
-
-        const healthFactor = await LendingPoolContract.methods
-            .previewHealthFactorAfterRepay(userAddress, assetAddress, repayAmount, tokenPricesUSD)
-            .call();
-
-        return res.status(200).json({
-            user: userAddress,
-            asset: assetAddress,
-            repayAmount,
-            healthFactor: ethers.formatUnits(healthFactor, 18)
-        });
-    } catch (err) {
-        return res.status(500).json({ error: 'Failed to preview health factor after repay', details: err.message });
+    if (!isAddress(userAddress) || !isAddress(assetAddress)) {
+      return res.status(400).json({ error: 'Invalid address' });
     }
+
+    if (isNaN(repayAmount) || Number(repayAmount) <= 0) {
+      return res.status(400).json({ error: 'Invalid repay amount' });
+    }
+
+    const repayAmountInSmallestUnit = ethers.parseUnits(repayAmount.toString(), 18);
+
+    const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+    const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
+
+    const tokenPricesUSDInSmallestUnit = tokenPricesUSD.map(price => {
+      const priceStr = price.toLocaleString("fullwide", { useGrouping: false });
+      return ethers.parseUnits(priceStr, 18).toString();
+    });
+
+    const healthFactor = await LendingPoolContract.methods
+      .previewHealthFactorAfterRepay(userAddress, assetAddress, repayAmountInSmallestUnit, tokenPricesUSDInSmallestUnit)
+      .call();
+
+      const INFINITE_HEALTH = BigInt("1000000000000000000000000000000000000");
+
+      let formattedHealthFactor;
+      if (BigInt(healthFactor) === INFINITE_HEALTH ) {
+        formattedHealthFactor = "-";
+      } else {
+        formattedHealthFactor = ethers.formatUnits(healthFactor, 18);
+      }
+    return res.status(200).json({
+      user: userAddress,
+      asset: assetAddress,
+      repayAmount,
+      healthFactor: formattedHealthFactor,
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      error: 'Failed to preview health factor after repay',
+      details: err.message,
+    });
+  }
 },
+
 async checkCapsStatus(req, res) {
   try {
     const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();

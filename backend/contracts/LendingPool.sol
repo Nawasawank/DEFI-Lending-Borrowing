@@ -557,18 +557,19 @@ contract LendingPool is Ownable, ReentrancyGuard {
             uint256 userBorrowShares = borrowShares[colToken][user];
             if (userBorrowShares > 0 && t.totalBorrowShares > 0) {
                 uint256 userDebt = (userBorrowShares * t.totalBorrows) / t.totalBorrowShares;
+                
                 if (colToken == token) {
-                    uint256 repayValueUSD = (repayAmount * price) / 1e18;
-                    userDebt = userDebt > repayValueUSD ? userDebt - repayValueUSD : 0;
+                    uint256 actualRepayAmount = repayAmount > userDebt ? userDebt : repayAmount;
+                    userDebt = userDebt - actualRepayAmount;
                 }
+                
                 totalBorrowValue += (userDebt * price) / 1e18;
             }
         }
 
         if (totalBorrowValue == 0) {
-            return type(uint256).max; // No borrows, health factor is infinite
+            return 1e36; 
         }
-
         healthFactor = (totalCollateralValue * 1e17) / totalBorrowValue;
     }
 }

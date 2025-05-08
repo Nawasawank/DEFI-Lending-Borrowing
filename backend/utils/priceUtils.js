@@ -12,39 +12,32 @@ const coingeckoMap = {
 };
 
 async function fetchTokenPrices(symbols) {
-  if (!symbols || symbols.length === 0) {
-    return {};
-  }
+  if (!symbols || symbols.length === 0) return {};
 
   try {
-    const symbolParam = symbols.join(',').toUpperCase(); // CMC expects uppercase
-    const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${symbolParam}&convert=USD`;
+    const uniqueSymbols = [...new Set(symbols.map(s => s.toUpperCase()))];
+    const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${uniqueSymbols.join(',')}&convert=USD`;
 
     const response = await axios.get(url, {
-      headers: {
-        'X-CMC_PRO_API_KEY': process.env.CMC_API_KEY
-      },
+      headers: { 'X-CMC_PRO_API_KEY': process.env.CMC_API_KEY },
       timeout: 5000,
-      validateStatus: (status) => status < 500 // reject only server errors
+      validateStatus: (status) => status < 500
     });
 
     const data = response.data.data;
     const result = {};
 
-    for (const symbol of symbols) {
-      const entry = data[symbol.toUpperCase()];
-      const price = entry?.quote?.USD?.price;
+    for (const symbol of uniqueSymbols) {
+      const price = data[symbol]?.quote?.USD?.price;
       if (typeof price === 'number') {
         result[symbol] = { usd: price };
-      } else {
-        console.warn(`⚠️ Price not found for ${symbol}`);
       }
     }
 
     return result;
   } catch (err) {
-    console.error("❌ CoinMarketCap API error:", err.message);
-    throw new Error("Error fetching prices from CoinMarketCap: " + err.message);
+    console.error("CoinMarketCap API error:", err.message);
+    return {}; 
   }
 }
 

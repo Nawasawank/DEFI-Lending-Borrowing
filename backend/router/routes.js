@@ -38,7 +38,7 @@ router.get("/previewCollateral", LendingController.PreviewCollateralAfterWithdra
 router.get("/claimToken", LendingController.claimAllTokensForUser);
 router.get("/MaxWithdraw", LendingController.getMaxWithdrawable);
 router.get("/health-factor", LendingController.getHealthFactor);
-router.get("/preview-health-factor", LendingController.PreviewHealthFactor); // Preview health factor after supplying a value
+//router.get("/preview-health-factor", LendingController.PreviewHealthFactor); // Preview health factor after supplying a value
 router.get("/MaxBorrow", LendingController.getMaxBorrowable); // Get max borrowable amount for a user and asset
 router.get("/previewRemaingDebt", LendingController.PreviewRemainingDebtAfterRepay); // Preview health factor after supplying a value
 router.get("/borrower-debt", LendingController.getBorrowerDebt); // Preview borrow amount after withdrawal
