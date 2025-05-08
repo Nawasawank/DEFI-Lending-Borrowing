@@ -232,6 +232,8 @@ contract LendingPool is Ownable, ReentrancyGuard {
 
 
     function borrow(address token, uint256 amount, uint256[] memory tokenPricesUSD) external onlyAllowed(token) nonReentrant {
+        require(amount > 0, "Amount must be greater than zero");
+
         accrueBorrowInterest(token);
 
         TokenState storage t = tokenState[token];
