@@ -11,11 +11,6 @@ module.exports = {
       chainId: 1337,           
     },
   },
-  settings: {
-    optimizer: {
-      enabled: true,
-      runs: 50 // or lower if needed
-    }
-  }
+  
 };
 
