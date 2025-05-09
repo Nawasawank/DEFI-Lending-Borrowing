@@ -2,7 +2,7 @@
 
 .activity-containerb {  /* Adjusted class name for borrowing context */
   width: 500px;
-  height: 240px;
+  height: auto;
   background: rgba(19, 19, 19, 0.3);
   padding: auto;
   border-radius: 10px;
@@ -32,7 +32,7 @@
   font-size: 12px;
 }
 
-h2 {
+h2 .b {
     margin: 0; /* Removes default margin */
     padding-right: 10px; /* Provides space next to the heading */
   }
@@ -54,7 +54,7 @@ h2 {
     box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
   }
   
-  .b table{
+  .b {
    
     table-layout: fixed; /* Force equal column width */
     border-collapse: collapse;
@@ -63,14 +63,15 @@ h2 {
 
   .b th {
     border-bottom: 1px solid white;
-    font-size: 13px;
+    font-size: 12px;
     text-align: left;
     padding-bottom: 4px;
 
   }
 
-  .b th, td {
+  .b  td {
     width: 100px; /* or whatever equal share needed */
+    padding: 6px 0;
   }
   
   .borrow-table {
@@ -141,7 +142,7 @@ h2 {
   }
   
   .link-buttonb {
-    padding: 5px 10px;
+    padding: 8px 10px;
     border-radius: 5px;
     background-color: #707070;
     color: white;
@@ -149,6 +150,8 @@ h2 {
     display: block; /* Makes the link fill the container like a button */
     text-align: center; /* Centers text within the link */
     cursor: pointer;
+    font-family: "Ubuntu", sans-serif;
+    font-size: 12px;
   }
   
   .link-buttonb:hover {
@@ -156,13 +159,11 @@ h2 {
     color: #fff;
   }
   
-  .Switch-buttonb {
-    background-color: #98a4e6; /* Light blue background for distinction */
-    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
-  }
+ 
   
   .Repay-buttonb {
     background-color: #050505; /* Darker for distinction */
     box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+  
   }
   

@@ -34,15 +34,17 @@
   }
 
   /* Table Styling */
-.asset table {
-    table-layout: fixed;
-    border-collapse: collapse;
-    margin-top: 10px;
-    width: 100%;
+.as{
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  border-spacing: 0;
+  margin-top: 10px;
+  font-family: "Ubuntu", sans-serif;
     
 }
 
- .asset th {
+ .as th {
     font-size: 13px;
     text-align: left;
     padding-bottom: 4px;
@@ -54,34 +56,34 @@
   
   
   
-  .asset tbody tr {
+  .as tbody tr {
     background: transparent;
     line-height: 20px;
   }
   
-  .asset td {
+  .as td {
     font-size: 12px;
     padding: 6px 0;
   }
   
   
-  .asset th, td {
+  .as th, .as td {
     padding: 6px 0px;
   }
   
- .asset th:nth-child(4),
+ .as th:nth-child(4),
     td:nth-child(4) {
     
       width: 50px; /* Adjust width as necessary */
     }
     
-   .asset th:nth-child(2),
+   .asth:nth-child(2),
     td:nth-child(2) {
       /* Withdraw Button Column */
       width: 80px; /* Adjust width as necessary, ensure it fits the content */
     }
     
-    .asset th:nth-child(1),
+    .as th:nth-child(1),
     td:nth-child(1) {
       /* Assets Column */
       width: 70px; /* Adjust width as necessary */
@@ -197,7 +199,7 @@
 
 .as th {
   border-bottom: 1px solid white;
-  font-size: 13px;
+  font-size: 14px;
   text-align: left;
   padding-bottom: 4px;
 }
@@ -220,7 +222,7 @@
 
 .as th:nth-child(1),
 .as td:nth-child(1) {
-  width: 70px;
+  width: 100px;
 }
 
 .as th:nth-child(2),
@@ -233,9 +235,14 @@
   width: 70px;
 }
 
+.as th:nth-child(4),
+.as td:nth-child(4) {
+  width: 100px;
+}
+
 .as th:nth-child(5),
 .as td:nth-child(5) {
-  width: 100px;
+  width: 20px;
   text-align: right;
 }
 
@@ -270,5 +277,5 @@
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
   font-family: "Ubuntu", sans-serif;
   font-size: 12px;
-  margin-left: auto;
+  margin-left: -200px;
 }

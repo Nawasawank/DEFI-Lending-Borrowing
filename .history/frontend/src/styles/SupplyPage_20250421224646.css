@@ -1,0 +1,98 @@
+.supply-modal-overlay {
+    position: fixed;
+    inset: 0; /* shorthand for top, right, bottom, left: 0 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    background-color: rgba(0, 0, 0, 0.3);
+  }
+  
+  
+  .supplypage-content {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    width: 350px;
+    position: relative;
+    box-shadow: 0px 4px 12px rgba(0,0,0,0.3);
+    font-family: 'Ubuntu', sans-serif;
+  }
+  
+  .close-button {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+  }
+  
+  .input-section label {
+    font-weight: bold;
+  }
+  
+  .input-box {
+    display: flex;
+    justify-content: space-between;
+    background: #e2e2e2;
+    border-radius: 10px;
+    padding: 10px;
+    margin-top: 5px;
+  }
+  
+  .input-box input {
+    border: none;
+    background: transparent;
+    font-size: 16px;
+    width: 60px;
+  }
+  
+  .token-name {
+    font-weight: bold;
+  }
+  
+  .subtext {
+    color: gray;
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  
+  .overview-box {
+    background: #e2e2e2;
+    border-radius: 10px;
+    padding: 12px;
+    margin-top: 15px;
+  }
+  
+  .row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  
+  .enable-text {
+    color: green;
+    font-weight: 500;
+  }
+  
+  .gas-fee {
+    margin-top: 10px;
+    font-size: 13px;
+    color: gray;
+  }
+  
+  .supply-button {
+    margin-top: 15px;
+    width: 100%;
+    background: black;
+    color: white;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  

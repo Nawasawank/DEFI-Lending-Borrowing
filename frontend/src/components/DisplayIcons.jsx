@@ -13,6 +13,10 @@ const DisplayIcons = () => {
           <span className="icon-label">Net APY</span>
           <span className="icon-value">-</span>
         </div>
+        <div className="icon-box">
+          <span className="icon-label">Health factor</span>
+          <span className="icon-value">0.5</span>
+        </div>
       </div>
       <button className="view-transaction-button">View Transaction</button>
     </div>

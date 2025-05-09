@@ -1,11 +1,27 @@
 import React from 'react';
 import '../styles/Assetsupplies.css';
 
+import wethIcon from '../pictures/WETH.png';
+import wbtcIcon from '../pictures/WBTC.png';
+import usdcIcon from '../pictures/USDC.png';
+import daiIcon from '../pictures/DAI.png';
+import ghoIcon from '../pictures/GHO.png';
+
+const tokenIcons = {
+  WETH: wethIcon,
+  WBTC: wbtcIcon,
+  USDC: usdcIcon,
+  DAI: daiIcon,
+  GHO: ghoIcon,
+};
+
 const Assetsupplies = ({ onOpenSupply }) => {
   const assetsData = [
-    { name: 'ETH', value: '$1,200', apy: '3.45%', collateral: 'Yes' },
+    { name: 'WETH', value: '$1,200', apy: '3.45%', collateral: 'Yes' },
+    { name: 'WBTC', value: '$2,300', apy: '4.15%', collateral: 'Yes' },
     { name: 'USDC', value: '$5,000', apy: '2.20%', collateral: 'Yes' },
-    { name: 'MATIC', value: '$800', apy: '5.10%', collateral: 'No' }
+    { name: 'DAI', value: '$900', apy: '2.71%', collateral: 'Yes' },
+    { name: 'GHO', value: '$1,000', apy: '3.60%', collateral: 'No' }
   ];
 
   return (
@@ -29,7 +45,16 @@ const Assetsupplies = ({ onOpenSupply }) => {
               <tr key={index}>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div className="assetsupply-icon" />
+                    <img
+                      src={tokenIcons[asset.name]}
+                      alt={asset.name}
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        backgroundColor: 'white',
+                      }}
+                    />
                     <span>{asset.name}</span>
                   </div>
                 </td>

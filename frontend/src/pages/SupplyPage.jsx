@@ -1,57 +1,103 @@
-import React from "react";
-import "../styles/SupplyPage.css";
+import React, { useState } from 'react';
+import '../styles/SupplyPage.css';
+import SupplyConfirmPage from './SupplyConfirmPage';
+import { useNavigate } from 'react-router-dom';
 
-const SupplyPage = ({ onClose }) => {
+import wethIcon from '../pictures/WETH.png';
+import wbtcIcon from '../pictures/WBTC.png';
+import usdcIcon from '../pictures/USDC.png';
+import daiIcon from '../pictures/DAI.png';
+import ghoIcon from '../pictures/GHO.png';
+
+const tokenIcons = {
+  WETH: wethIcon,
+  WBTC: wbtcIcon,
+  USDC: usdcIcon,
+  DAI: daiIcon,
+  GHO: ghoIcon,
+};
+
+const SupplyPage = ({ onClose, tokenName, apy, amount }) => {
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [inputAmount, setInputAmount] = useState(amount);
+  const navigate = useNavigate();
+
+  const handleSupplyClick = () => {
+    if (inputAmount <= 0) {
+      setHasError(true);
+    } else {
+      setShowConfirm(true);
+      setHasError(false);
+    }
+  };
+
+  const handleCloseToDashboard = () => {
+    onClose();
+  };
+
   return (
-    <div className="supply-modal-overlay">
-      <div className="supply-modal">
-        <div className="supply-header">
-          <span className="supply-title">Supply xxxx</span>
-          <button className="close-button" onClick={onClose}>
-            ×
-          </button>
-        </div>
+    <div className="supplypage-overlay">
+      <div className="supplypage-content">
+        {showConfirm ? (
+          <SupplyConfirmPage
+            onClose={handleCloseToDashboard}
+            tokenName={tokenName}
+            amount={inputAmount}
+          />
+        ) : (
+          <>
+            <button className="close-button" onClick={onClose}>×</button>
 
-        {/* Amount input section */}
-        <div className="supply-section">
-          <label>Amount</label>
-          <div className="supply-input-box">
-            <div className="amount-left">
-              <input type="number" defaultValue="10" />
-              <small>$ 10.00</small>
-            </div>
-            <div className="amount-right">
-              <span className="token-toggle"></span>
-              <span className="token-symbol">xxxx</span>
-            </div>
-          </div>
-        </div>
+            <h2 className="modal-title">Supply {tokenName}</h2>
 
-        {/* Transaction Overview */}
-        <div className="supply-section">
-          <label className="transaction-title">Transaction Overview</label>
-          <div className="overview-box">
-            <div className="overview-row">
-              <span>Supply APY</span>
-              <span>2.71%</span>
+            <div className="input-section">
+              <label>Amount</label>
+              <div className="input-box" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+                <input
+                  type="number"
+                  value={inputAmount}
+                  onChange={(e) => setInputAmount(Number(e.target.value))}
+                  style={{ flex: 1, marginRight: '10px' }}
+                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="token-name">{tokenName}</span>
+                  <img
+                    src={tokenIcons[tokenName]}
+                    alt={tokenName}
+                    style={{
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      backgroundColor: 'white',
+                    }}
+                  />
+                </div>
+              </div>
             </div>
-            <div className="overview-row">
-              <span>Collateralization</span>
-              <span className="enable-btn">Enable</span>
+
+            <h4 className="overview-title">Transaction Overview</h4>
+            <div className="overview-box">
+              <div className="row">
+                <span>Supply APY</span>
+                <span>{apy}%</span>
+              </div>
+              <div className="row">
+                <span>Collateralization</span>
+                <span className="enable-text">Enable</span>
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Fee display */}
-        <div className="fee-display">
-          <span role="img" aria-label="gas">
-            ⛽
-          </span>{" "}
-          $0.05
-        </div>
-
-        {/* Submit Button */}
-        <button className="supply-submit-btn">Supply xxxx</button>
+            <div className="sbutton-container">
+              <button
+                className={`supply-button ${hasError ? 'error shake' : ''}`}
+                onClick={handleSupplyClick}
+              >
+                Supply {tokenName}
+              </button>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

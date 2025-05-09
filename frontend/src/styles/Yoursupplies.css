@@ -1,6 +1,9 @@
+@import url("https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap");
+
+/* Container for the activity */
 .activity-containers {
   width: 500px;
-  height: 240px;
+  height: auto;
   background: rgba(19, 19, 19, 0.3);
   padding: auto;
   border-radius: 10px;
@@ -8,7 +11,6 @@
   display: flex;
   flex-direction: column;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
- 
 }
 
 /* Header */
@@ -28,13 +30,6 @@
   flex-direction: column;
   margin-left: 20px;
   margin-top: 20px;
- 
-}
-
-
-h2 {
-  margin: 0;
-  padding-right: 10px;
 }
 
 /* Top info boxes */
@@ -56,21 +51,26 @@ h2 {
 }
 
 /* Table Styling */
-.s table {
-  table-layout: fixed; /* Force equal column width */
+.s {
   border-collapse: collapse;
   margin-top: 10px;
+  width: 100%;
+  margin-bottom: 10px;
 }
 
+/* Header styling */
+.s thead {
+  background-color: transparent; /* or use a header color if desired */
+}
 
 .s th {
   border-bottom: 1px solid white;
-  font-size: 13px;
+  font-size: 12px;
   text-align: left;
   padding-bottom: 4px;
 }
 
-
+/* Table rows */
 .s tbody tr {
   background: transparent;
   line-height: 20px;
@@ -79,37 +79,29 @@ h2 {
 .s td {
   font-size: 12px;
   padding: 6px 0;
+  color: white; /* Ensure text color is white */
 }
 
-
-.s th, td {
-  width: 10px; /* or whatever equal share needed */
-}
-
+/* Specific adjustments for columns */
 .s th:nth-child(3),
-  td:nth-child(3) {
-  
-    width: 70px; /* Adjust width as necessary */
-  }
-  
-.s th:nth-child(2),
-  td:nth-child(2) {
-    /* Withdraw Button Column */
-    width: 100px; /* Adjust width as necessary, ensure it fits the content */
-  }
-  
-.s th:nth-child(1),
-  td:nth-child(1) {
-    /* Assets Column */
-    width: 70px; /* Adjust width as necessary */
-  }
+.s td:nth-child(3) {
+  width: 20px;
+}
 
-  .s th:nth-child(4),
-  td:nth-child(4) {
-    /* Assets Column */
-    width: 10px; /* Adjust width as necessary */
-  }
-  
+.s th:nth-child(2),
+.s td:nth-child(2) {
+  width: 70px; /* Adjust width as necessary */
+}
+
+.s th:nth-child(1),
+.s td:nth-child(1) {
+  width: 50px;
+}
+
+.s th:nth-child(4),
+.s td:nth-child(4) {
+  width: 30px;
+}
 
 /* Asset icon */
 .asset-icon {
@@ -119,16 +111,9 @@ h2 {
   border-radius: 50%;
 }
 
-/* Button container */
-.sbutton-container {
-  display: flex;
-  justify-content: flex-start; /* Adjusts the space between the buttons */
-  gap: 15px; /* Adds space between the buttons */;
-}
-
-/* Buttons */
-.slink-button  {
-  padding: 5px 10px;
+/* Button styling */
+.slink-button {
+  padding: 8px 10px;
   border-radius: 5px;
   background-color: #707070;
   color: white;
@@ -143,12 +128,12 @@ h2 {
   color: #fff;
 }
 
-.sSwitch-button  {
-  background-color: #98a4e6;
-  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
-}
-
-.sWithdraw-button  {
+/* Withdraw Button Styling */
+.sWithdraw-button {
   background-color: #050505;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+  text-align: right;
+  font-family: "Ubuntu", sans-serif;
+  margin-right: -80px;
+  font-size: 12px;
 }

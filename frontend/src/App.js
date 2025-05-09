@@ -1,9 +1,9 @@
 import React from "react";
 import { BrowserRouter as Router, Route, Routes } from "react-router-dom";
+import DashboardPage from "./pages/DashboardPage"; // Import the DashboardPage component
+import MarketPage from "./pages/MarketPage";
+import MarketDetail from "./pages/MarketDetailPage";
 import "./App.css"; // Global CSS for background image and layout
-import DashboardPage from "./pages/DashboardPage.jsx"; // Import the DashboardPage component
-import MarketPage from "./pages/MarketPage.jsx";
-import MarketDetail from "./pages/MarketDetailPage.jsx";
 import Sidebar from "./components/Sidebar";
 
 function App() {

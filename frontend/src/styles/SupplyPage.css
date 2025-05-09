@@ -33,7 +33,7 @@
   
   .input-section label {
     font-weight: bold;
-    margin-top: 80px;
+    
   }
   
   .input-box {
@@ -54,7 +54,6 @@
   
   .token-name {
     font-weight: bold;
-    margin-top: 4px;
   }
   
   .subtext {
@@ -95,6 +94,7 @@
     border-radius: 8px;
     cursor: pointer;
     font-family: 'Ubuntu', sans-serif;
+    font-style: bold;
 
   }
 
