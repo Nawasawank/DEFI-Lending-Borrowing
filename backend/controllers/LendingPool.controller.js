@@ -859,30 +859,6 @@ async SumAllCollateral(req, res) {
     }
   },
 
-  async resetTokenConfig(req, res) {
-    try {
-      const { tokenAddress } = req.body;
-      
-      if (!isAddress(tokenAddress)) {
-        return res.status(400).json({ error: 'Invalid token address' });
-      }
-  
-      const tx = await LendingPoolContract.methods
-        .resetTokenConfig(tokenAddress)
-        .send({ from: req.adminAddress });
-  
-      return res.status(200).json({
-        message: 'Token config reset to defaults',
-        transactionHash: tx.transactionHash
-      });
-    } catch (err) {
-      return res.status(500).json({ 
-        error: 'Failed to reset token config', 
-        details: err.message 
-      });
-    }
-  },
-
   async borrow(req, res) {
     try {
       const { fromAddress, assetAddress, amount } = req.body;
@@ -925,6 +901,8 @@ async SumAllCollateral(req, res) {
   
       const collateralUSD = parseFloat(collateral.totalCollateralUSD);
       const maxLTV = Number(maxLTVBP) / 1e5;
+      console.log("Max LTV:", maxLTV);
+      
       const maxBorrowableUSD = collateralUSD * maxLTV;
   
       // 📍 Before checking, accrue borrow interest
@@ -1140,6 +1118,8 @@ async getMaxBorrowable(req, res) {
     const collateralUSD = parseFloat(collateralData.totalCollateralUSD);
 
     const maxLTVBP = Number(maxLTVBPRaw);
+    console.log("Max LTV BP:", maxLTVBP);
+    
     const maxBorrowableUSD = collateralUSD * (maxLTVBP / 1e5);
 
     // 📌 accrue borrow interest first

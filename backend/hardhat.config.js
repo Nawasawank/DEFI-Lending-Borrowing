@@ -1,5 +1,7 @@
 require("@nomicfoundation/hardhat-toolbox");
 require('@nomicfoundation/hardhat-ethers');
+require("hardhat-slither");
+
 
 
 module.exports = {

@@ -9,7 +9,6 @@ const parseUnits = (val, decimals = 18) =>
 describe("Liquidation", function () {
   let liquidation, lendingPool, token, owner, user, liquidator;
   let tokenPricesUSD;
-  let supportedTokens;
 
   beforeEach(async function () {
     [owner, user, liquidator] = await ethers.getSigners();
@@ -41,6 +40,9 @@ describe("Liquidation", function () {
     liquidation = await Liquidation.deploy(lendingPool.target);
     await liquidation.waitForDeployment();
 
+    // Set the Liquidation contract as the authorized liquidator
+    await lendingPool.connect(owner).setLiquidationContract(liquidation.target);
+
     await token.connect(owner).mint(user.address, parseUnits("100", 18));
     await token.connect(owner).mint(liquidator.address, parseUnits("100", 18));
 
@@ -55,49 +57,6 @@ describe("Liquidation", function () {
     );
 
     tokenPricesUSD = [parseUnits("1", 18)];
-
-    await lendingPool.connect(owner).approveLiquidation(
-      token.target,
-      liquidation.target,
-      parseUnits("100", 18)
-    );
-
-    supportedTokens = [
-      "0x0000000000000000000000000000000000000001",
-      "0x0000000000000000000000000000000000000002",
-      "0x0000000000000000000000000000000000000003",
-      "0x0000000000000000000000000000000000000004",
-      "0x0000000000000000000000000000000000000005",
-    ];
-
-    this.liquidationController = {
-      async checkLiquidationEligibility(userAddress) {
-        if (!ethers.isAddress(userAddress)) {
-          throw new Error("Invalid user address");
-        }
-
-        if (supportedTokens.length === 0) {
-          throw new Error("No supported tokens found in the LendingPool contract");
-        }
-
-        const healthFactor = ethers.toBigInt("900000000000000000");
-        const collateral = { balances: ["1000", "0"] };
-        const debt = { amounts: ["500", "0"] };
-
-        const isEligible = healthFactor < ethers.parseUnits("1", 18);
-        const hasCollateral = collateral.balances.some((b) => b !== "0");
-        const hasDebt = debt.amounts.some((a) => a !== "0");
-
-        return {
-          user: userAddress,
-          isEligible,
-          hasCollateral,
-          hasDebt,
-          healthFactor: ethers.formatUnits(healthFactor, 18),
-          status: isEligible ? "Eligible" : "Not Eligible",
-        };
-      },
-    };
   });
 
   it("should revert with 'Healthy position' if health factor is >= 1e18", async function () {
@@ -115,6 +74,7 @@ describe("Liquidation", function () {
   });
 
   it("should successfully liquidate if health factor is < 1e18", async function () {
+    // Reduce the token price to simulate a low health factor
     tokenPricesUSD = [parseUnits("0.5", 18)];
 
     const tx = await liquidation.connect(liquidator).liquidate(
@@ -130,43 +90,8 @@ describe("Liquidation", function () {
       liquidator.address,
       token.target,
       parseUnits("1", 18),
-      parseUnits("1.05", 18)
+      parseUnits("1.05", 18) // Includes penalty
     );
-  });
-
-  it("should return eligibility details for a valid user address", async function () {
-    const userAddress = "0x1234567890abcdef1234567890abcdef12345678";
-
-    const result = await this.liquidationController.checkLiquidationEligibility(userAddress);
-
-    expect(result).to.have.property("user", userAddress);
-    expect(result).to.have.property("isEligible", true);
-    expect(result).to.have.property("hasCollateral", true);
-    expect(result).to.have.property("hasDebt", true);
-    expect(result).to.have.property("healthFactor", "0.9");
-    expect(result).to.have.property("status", "Eligible");
-  });
-
-  it("should return an error for an invalid user address", async function () {
-    const invalidUserAddress = "invalid_address";
-
-    try {
-      await this.liquidationController.checkLiquidationEligibility(invalidUserAddress);
-    } catch (err) {
-      expect(err.message).to.equal("Invalid user address");
-    }
-  });
-
-  it("should handle errors when fetching supported tokens", async function () {
-    supportedTokens = [];
-
-    const userAddress = "0x1234567890abcdef1234567890abcdef12345678";
-
-    try {
-      await this.liquidationController.checkLiquidationEligibility(userAddress);
-    } catch (err) {
-      expect(err.message).to.equal("No supported tokens found in the LendingPool contract");
-    }
   });
 });
 
