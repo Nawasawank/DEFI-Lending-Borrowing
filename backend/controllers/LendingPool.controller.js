@@ -736,7 +736,8 @@ async SumAllCollateral(req, res) {
       if (!isAddress(userAddress) || !isAddress(assetAddress)) {
         return res.status(400).json({ error: 'Invalid address' });
       }
-  
+
+      await LendingPoolContract.methods.accrueInterest(assetAddress).send({ from: userAddress })
       const currentBalance = await LendingPoolContract.methods
         .balanceOf(assetAddress, userAddress)
         .call();
