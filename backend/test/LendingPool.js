@@ -168,70 +168,6 @@ describe("LendingPool deposit and withdraw with custom InterestRateModel ", func
   });
 });
 
-describe("LendingPool borrow and repay functionality", function () {
-  let owner, user;
-  let token, faucet, pool, interestModel;
-
-  beforeEach(async () => {
-    [owner, user] = await ethers.getSigners();
-
-    const Token = await ethers.getContractFactory("Token");
-    token = await Token.deploy("TestToken", "TTK", parseEther("1000"));
-    await token.waitForDeployment();
-
-    const Faucet = await ethers.getContractFactory("TokenFaucet");
-    faucet = await Faucet.deploy(token.target);
-    await faucet.waitForDeployment();
-
-    await token.setFaucet(faucet.target);
-    await faucet.connect(user).claimTokens();
-
-    const InterestRateModel = await ethers.getContractFactory("InterestRateModel");
-    interestModel = await InterestRateModel.deploy();
-    await interestModel.waitForDeployment();
-
-    await interestModel.setParams(token.target, 200, 1000, 3000, 8000, 1000);
-
-    const LendingPool = await ethers.getContractFactory("LendingPool");
-    pool = await LendingPool.deploy([token.target], interestModel.target);
-    await pool.waitForDeployment();
-
-    await pool.setAssetConfig(
-      token.target,
-      parseEther("1000000"),
-      parseEther("1000000"),
-      7500,
-      8000,
-      500
-    );
-
-    await token.connect(user).approve(pool.target, parseEther("100"));
-    await token.approve(pool.target, parseEther("500"));
-    await pool.deposit(token.target, parseEther("500"));
-  });
-
-it("should fail if user tries to borrow more than allowed by collateral", async () => {
-  const tokenAddress = await token.getAddress();
-  await pool.connect(user).deposit(tokenAddress, parseEther("10"));
-
-  const prices = [parseEther("1")];
-  const borrowAmount = parseEther("20");
-
-  await expect(
-    pool.connect(user).borrow(tokenAddress, borrowAmount, prices)
-  ).to.be.revertedWith("Exceeds collateral-based limit"); 
-});
-
-it("should fail to repay when amount is zero", async () => {
-  const tokenAddress = await token.getAddress();
-  await expect(
-    pool.connect(user).repay(tokenAddress, 0)
-  ).to.be.revertedWith("Amount must be > 0"); // ✅ MATCHES CONTRACT
-});
-
-
-});
-
 
 describe("LendingPool borrow and repay functionality", function () {
   let owner, user;
@@ -286,6 +222,24 @@ describe("LendingPool borrow and repay functionality", function () {
     // Owner provides liquidity
     await token.approve(poolAddress, parseEther("500"));
     await pool.deposit(tokenAddress, parseEther("500"));
+  });
+    it("should fail if user tries to borrow more than allowed by collateral", async () => {
+    const tokenAddress = await token.getAddress();
+    await pool.connect(user).deposit(tokenAddress, parseEther("10"));
+
+    const prices = [parseEther("1")];
+    const borrowAmount = parseEther("20");
+
+    await expect(
+      pool.connect(user).borrow(tokenAddress, borrowAmount, prices)
+    ).to.be.revertedWith("Exceeds collateral-based limit"); 
+  });
+
+  it("should fail to repay when amount is zero", async () => {
+    const tokenAddress = await token.getAddress();
+    await expect(
+      pool.connect(user).repay(tokenAddress, 0)
+    ).to.be.revertedWith("Amount must be > 0"); 
   });
 
   it("should allow user to borrow after depositing collateral", async () => {
