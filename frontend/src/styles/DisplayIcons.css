@@ -4,9 +4,10 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
+  padding: 20px 0px 20px 20px;
   font-family: "Ubuntu", sans-serif;
   font-size: 36;
+  width: auto;
 }
 
 .icon-group {
@@ -29,7 +30,7 @@
   font-size: 16px;
   color: #ffffff;
   margin-right: 10px; /* Space between label and value */
- width: 100px;
+  width: 100px;
 }
 
 .icon-value {
@@ -50,7 +51,6 @@
   font-size: 16px;
   font-weight: bold;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
-  margin-right: 80px;
 }
 
 .view-transaction-button:hover {
