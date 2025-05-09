@@ -1,12 +1,14 @@
 .dashboard-container {
   display: flex;
   flex-direction: column;
+  padding-right: 50px;
 }
 
 .container {
   flex-direction: column;
   margin-left: 70px;
   margin-bottom: 30px;
+  width: auto;
 }
 .upper {
   display: flex;
@@ -38,7 +40,6 @@
   border-radius: 12px;
   box-shadow: 0 0 20px rgba(0, 0, 0, 0.6);
   max-width: 600px;
-
 }
 
 .borrow-overlay {

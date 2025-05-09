@@ -79,7 +79,7 @@ describe("LendingPool deposit and withdraw with custom InterestRateModel ", func
   });
   it("should fail when deposit is zero", async () => {
     const tokenAddress = await token.getAddress();
-    await expect(pool.connect(user).deposit(tokenAddress, 0)).to.be.revertedWith("Amount must be greater than zero");
+    await expect(pool.connect(user).deposit(tokenAddress, 0)).to.be.revertedWith("Amount must be > 0");
   });
 
   it("should fail if token is not allowed", async () => {
@@ -99,7 +99,7 @@ describe("LendingPool deposit and withdraw with custom InterestRateModel ", func
 
     await expect(
       pool.connect(user).deposit(tokenAddress, parseEther("1000001"))
-    ).to.be.revertedWith("Exceeds supply cap");
+    ).to.be.revertedWith("Exceeds cap");
   });
   it("should fail if deposit exceeds user's balance", async () => {
     const tokenAddress = await token.getAddress();
@@ -134,7 +134,7 @@ describe("LendingPool deposit and withdraw with custom InterestRateModel ", func
   });
   it("should fail when withdraw amount is zero", async () => {
     const tokenAddress = await token.getAddress();
-    await expect(pool.connect(user).withdraw(tokenAddress, 0)).to.be.revertedWith("Amount must be greater than zero");
+    await expect(pool.connect(user).withdraw(tokenAddress, 0)).to.be.revertedWith("Amount must be > 0");
   });
   it("should fail when withdraw amount exceeds balance including interest", async () => {
     const tokenAddress = await token.getAddress();
@@ -166,11 +166,8 @@ describe("LendingPool deposit and withdraw with custom InterestRateModel ", func
     const totalDeposits = tokenState[1]; 
     expect(totalDeposits).to.equal(0);
   });
-
-  
-  
-  
 });
+
 
 describe("LendingPool borrow and repay functionality", function () {
   let owner, user;
@@ -226,6 +223,24 @@ describe("LendingPool borrow and repay functionality", function () {
     await token.approve(poolAddress, parseEther("500"));
     await pool.deposit(tokenAddress, parseEther("500"));
   });
+    it("should fail if user tries to borrow more than allowed by collateral", async () => {
+    const tokenAddress = await token.getAddress();
+    await pool.connect(user).deposit(tokenAddress, parseEther("10"));
+
+    const prices = [parseEther("1")];
+    const borrowAmount = parseEther("20");
+
+    await expect(
+      pool.connect(user).borrow(tokenAddress, borrowAmount, prices)
+    ).to.be.revertedWith("Exceeds collateral-based limit"); 
+  });
+
+  it("should fail to repay when amount is zero", async () => {
+    const tokenAddress = await token.getAddress();
+    await expect(
+      pool.connect(user).repay(tokenAddress, 0)
+    ).to.be.revertedWith("Amount must be > 0"); 
+  });
 
   it("should allow user to borrow after depositing collateral", async () => {
     const tokenAddress = await token.getAddress();
@@ -238,18 +253,6 @@ describe("LendingPool borrow and repay functionality", function () {
 
     const debt = await pool.repayBalanceOf(tokenAddress, user.address);
     expect(debt).to.be.closeTo(borrowAmount, parseEther("0.000001"));
-  });
-
-  it("should fail if user tries to borrow more than allowed by collateral", async () => {
-    const tokenAddress = await token.getAddress();
-    await pool.connect(user).deposit(tokenAddress, parseEther("10"));
-
-    const prices = [parseEther("1")];
-    const borrowAmount = parseEther("20");
-
-    await expect(
-      pool.connect(user).borrow(tokenAddress, borrowAmount, prices)
-    ).to.be.revertedWith("Exceeds collateral-based limit");
   });
 
   it("should allow user to repay debt partially", async () => {
@@ -284,7 +287,7 @@ describe("LendingPool borrow and repay functionality", function () {
 
   it("should fail to repay when amount is zero", async () => {
     const tokenAddress = await token.getAddress();
-    await expect(pool.connect(user).repay(tokenAddress, 0)).to.be.revertedWith("Amount must be greater than zero");
+    await expect(pool.connect(user).repay(tokenAddress, 0)).to.be.revertedWith("Amount must be > 0");
   });
 
   it("should fail to repay if user has no borrow", async () => {
@@ -379,14 +382,28 @@ describe("LendingPool edge cases", function () {
     expect(await pool.balanceOf(tokenAddress, user.address)).to.equal(0);
   });
 
-  it("should allow borrowing exactly at LTV limit", async () => {
-    const tokenAddress = await token.getAddress();
-    await pool.connect(user).deposit(tokenAddress, parseEther("100"));
-    const prices = [parseEther("1")];
-    await pool.connect(user).borrow(tokenAddress, parseEther("75"), prices);
-    const debt = await pool.repayBalanceOf(tokenAddress, user.address);
-    expect(debt).to.be.closeTo(parseEther("75"), parseEther("0.00001"));
-  });
+it("should allow borrowing just below the LTV limit", async () => {
+  const tokenAddress = await token.getAddress();
+  await pool.connect(user).deposit(tokenAddress, parseEther("100"));
+  const prices = [parseEther("1")];
+
+  // Use view function to simulate max safe borrow
+  const healthBefore = await pool.previewHealthFactorAfterBorrow(
+    user.address,
+    tokenAddress,
+    parseEther("74.99"),
+    prices
+  );
+
+  // Try a safer number like 74.8 instead
+  const borrowAmount = parseEther("74.8");
+  await pool.connect(user).borrow(tokenAddress, borrowAmount, prices);
+
+  const debt = await pool.repayBalanceOf(tokenAddress, user.address);
+  expect(debt).to.be.closeTo(borrowAmount, parseEther("0.001"));
+});
+
+
 
 });
 

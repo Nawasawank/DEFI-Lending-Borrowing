@@ -93,7 +93,6 @@ const LiquidationController = {
           });
         }
       } catch (err) {
-        console.error("[DEBUG] Error fetching supported tokens:", err.message);
         return res.status(500).json({
           error: "Failed to fetch supported tokens",
           details: err.message,
@@ -116,11 +115,9 @@ const LiquidationController = {
               `Invalid token price for token at index ${index}: ${price}`
             );
           }
-          console.log(`[DEBUG] Token price for index ${index}:`, parsedPrice);
           return ethers.parseUnits(parsedPrice.toFixed(18), 18); // Updated for ethers v6
         });
       } catch (err) {
-        console.error("[DEBUG] Error fetching token prices:", err.message);
         return res.status(500).json({
           error: "Failed to fetch token prices",
           details: err.message,
@@ -133,7 +130,6 @@ const LiquidationController = {
         .call();
 
       console.log(
-        "[DEBUG] Health Factor:",
         ethers.formatUnits(healthFactor, 18) // Updated for ethers v6
       );
 
@@ -269,7 +265,6 @@ const LiquidationController = {
       const { userAddress } = req.query;
 
       // Debug: Log the received userAddress
-      console.log("[DEBUG] Received userAddress:", userAddress);
 
       if (!isAddress(userAddress)) {
         return res.status(400).json({
@@ -290,7 +285,6 @@ const LiquidationController = {
           });
         }
       } catch (err) {
-        console.error("[DEBUG] Error fetching supported tokens:", err.message);
         return res.status(500).json({
           error: "Failed to fetch supported tokens",
           details: err.message,
@@ -346,20 +340,14 @@ const LiquidationController = {
         return res.status(400).json({ error: "Invalid repay token address" });
       }
 
-      // Debug: Log the repayToken address
-      console.log("[DEBUG] repayToken address:", repayToken);
 
       // Initialize the token contract
       const tokenContract = new web3.eth.Contract(ERC20_ABI, repayToken);
 
-      // Debug: Log the tokenContract instance
-      console.log("[DEBUG] tokenContract:", tokenContract);
 
       // Test the decimals function to ensure the contract is valid
       const decimals = await tokenContract.methods.decimals().call();
 
-      // Debug: Log the decimals value
-      console.log("[DEBUG] Token decimals:", decimals);
 
       // Approve the Liquidation contract to spend the repay token
       const tx = await tokenContract.methods

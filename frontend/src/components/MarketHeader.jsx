@@ -8,7 +8,7 @@ import usdcIcon from "../pictures/USDC.png";
 import daiIcon from "../pictures/DAI.png";
 import ghoIcon from "../pictures/gho.svg";
 
-function Header({ name, address }) {
+function Header({ name, address, reserve }) {
   //--- Asset Icon Path ---//
   const assetIcons = {
     WETH: wethIcon,
@@ -20,6 +20,7 @@ function Header({ name, address }) {
 
   const [utilRate, setUtilRate] = useState(null);
   const [availableLiquidity, setAvailableLiquidity] = useState(null);
+  const [oraclePrice, setOraclePrice] = useState(null);
   useEffect(() => {
     //--- Fetch Utilization Rate ---//
     const fetchUtilRate = async () => {
@@ -57,6 +58,25 @@ function Header({ name, address }) {
       }
     };
 
+    //--- Fetch Oracle Price ---//
+    const fetchPrice = async () => {
+      try {
+        const response = await fetch(`http://localhost:3001/api/coin-prices`);
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+
+        const coinPrice = await response.json();
+        const matchingPrice = coinPrice.prices[name];
+        setOraclePrice(matchingPrice);
+
+        console.log("Oracle Price: ", matchingPrice);
+      } catch (error) {
+        console.error("Fetch market error:", error);
+      }
+    };
+
+    fetchPrice();
     fetchUtilRate();
     fetchAvailLiquid();
   }, []);
@@ -80,11 +100,11 @@ function Header({ name, address }) {
       <div className="asset-info-container">
         <div className="asset-info">
           <p>Reserve Size</p>
-          <p>0 $</p>
+          <p>{reserve}</p>
         </div>
         <div className="asset-info">
           <p>Available Liquidity</p>
-          <p>{availableLiquidity}</p>
+          <p>${availableLiquidity}</p>
         </div>
         <div className="asset-info">
           <p>Utilization Rate</p>
@@ -92,7 +112,7 @@ function Header({ name, address }) {
         </div>
         <div className="asset-info">
           <p>Oracle Prize</p>
-          <p>0 $</p>
+          <p>{oraclePrice}</p>
         </div>
       </div>
     </header>
