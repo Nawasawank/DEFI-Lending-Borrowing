@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import Header from "../components/Header";
 import "../styles/Market.css";
-import wethIcon from "../pictures/weth.png";
-import wbtcIcon from "../pictures/wbtc.png";
-import usdcIcon from "../pictures/usdc.png";
-import daiIcon from "../pictures/dai.png";
+import wethIcon from "../pictures/WETH.png";
+import wbtcIcon from "../pictures/WBTC.png";
+import usdcIcon from "../pictures/USDC.png";
+import daiIcon from "../pictures/DAI.png";
 import ghoIcon from "../pictures/gho.svg";
 
 function Market() {
@@ -29,15 +29,6 @@ function Market() {
 
     fetchMarketData();
   }, []);
-
-  //--- Asset Icon Path ---//
-  const assetIcons = {
-    WETH: wethIcon,
-    WBTC: wbtcIcon,
-    USDC: usdcIcon,
-    DAI: daiIcon,
-    GHO: ghoIcon,
-  };
 
   //--- Fetch Matket Asset ---//
   const [marketAssetsData, setMarketAssetData] = useState([]);
@@ -97,6 +88,15 @@ function Market() {
     fetchMarketAssetsAndAPYs();
   }, []);
 
+  //--- Asset Icon Path ---//
+  const assetIcons = {
+    WETH: wethIcon,
+    WBTC: wbtcIcon,
+    USDC: usdcIcon,
+    DAI: daiIcon,
+    GHO: ghoIcon,
+  };
+
   return (
     <div className="market-container">
       <Header />
@@ -149,10 +149,10 @@ function Market() {
                 <td>{asset.totalBorrowed}</td>
                 <td>{asset.borrowAPY}</td>
                 <td>
-                  <Link to="/marketdetail">
-                    <button className="view-button" value={asset.symbol}>
-                      view
-                    </button>
+                  <Link
+                    to={`/marketdetail?symbol=${asset.symbol}&assetAddress=${asset.assetAddress}`}
+                  >
+                    <button className="view-button">view</button>
                   </Link>
                 </td>
               </tr>

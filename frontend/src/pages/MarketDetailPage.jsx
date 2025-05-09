@@ -1,12 +1,42 @@
 import React from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import "../styles/MarketDetail.css";
 import MarketHeader from "../components/MarketHeader";
 import walletIcon from "../pictures/walletIcon.svg";
 
 function MarketDetail() {
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const name = queryParams.get("symbol");
+  const assetAddress = queryParams.get("assetAddress");
+
+  const [assetConfig, setAssetConfig] = useState(null);
+  useEffect(() => {
+    //--- Fetch Asset Config ---//
+    const fetchAssetConfig = async () => {
+      try {
+        const response = await fetch(
+          `http://localhost:3001/api/asset-config?assetAddress=${assetAddress}`
+        );
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+
+        const config = await response.json();
+        setAssetConfig(config);
+        console.log("Asset Config:", config);
+      } catch (error) {
+        console.error("Fetch market error:", error);
+      }
+    };
+
+    fetchAssetConfig();
+  }, []);
+
   return (
     <div className="marketdetail-container">
-      <MarketHeader />
+      <MarketHeader name={name} address={assetAddress} />
 
       {/* Detail Info */}
       <div className="detail-container">
@@ -31,15 +61,15 @@ function MarketDetail() {
             <div className="info-lower">
               <div className="info-card">
                 <p>Max LTV</p>
-                <p className="bold">0 %</p>
+                <p className="bold">{assetConfig.maxLTV}</p>
               </div>
               <div className="info-card">
                 <p>Liquidation threshold</p>
-                <p className="bold">0 %</p>
+                <p className="bold">{assetConfig.liquidationThreshold}</p>
               </div>
               <div className="info-card">
                 <p>Liquidation penalty</p>
-                <p className="bold">0 %</p>
+                <p className="bold">{assetConfig.liquidationPenalty}</p>
               </div>
             </div>
           </div>
@@ -59,7 +89,7 @@ function MarketDetail() {
               </div>
               <div className="upper-summary">
                 <p>Borrow cap</p>
-                <p className="bold">0 M</p>
+                <p className="bold">{assetConfig.borrowCap}</p>
                 <p>$0 of $0</p>
               </div>
             </div>
@@ -67,7 +97,7 @@ function MarketDetail() {
             <div className="info-lower">
               <div className="info-card">
                 <p>Reserve factor</p>
-                <p className="bold">??</p>
+                <p className="bold">{assetConfig.reserveFactor}</p>
               </div>
             </div>
           </div>
