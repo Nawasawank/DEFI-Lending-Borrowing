@@ -7,11 +7,13 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Token is ERC20, Ownable {
     address public faucet;
 
+    event FaucetUpdated(address indexed newFaucet);
+
     constructor(
-        string memory name,
-        string memory symbol,
+        string memory name_,
+        string memory symbol_,
         uint256 initialSupply
-    ) ERC20(name, symbol) Ownable(msg.sender) {
+    ) ERC20(name_, symbol_) Ownable(msg.sender) {
         _mint(msg.sender, initialSupply);
     }
 
@@ -21,7 +23,9 @@ contract Token is ERC20, Ownable {
     }
 
     function setFaucet(address _faucet) external onlyOwner {
+        require(_faucet != address(0), "Faucet cannot be zero address");
         faucet = _faucet;
+        emit FaucetUpdated(_faucet);
     }
 
     function mint(address to, uint256 amount) external onlyFaucet {

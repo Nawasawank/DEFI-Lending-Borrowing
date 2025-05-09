@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
-
-import "@openzeppelin/contracts/utils/math/SafeCast.sol";
+pragma solidity ^0.8.20;
 
 contract MockV3Aggregator {
-    uint8 public decimals;
+    uint8 public immutable decimals;
     int256 public answer;
     string public description;
     uint256 public updatedAt;
@@ -17,6 +15,7 @@ contract MockV3Aggregator {
     }
 
     function updateAnswer(int256 _newAnswer) public {
+        require(_newAnswer >= 0, "Invalid price"); // Optional check
         answer = _newAnswer;
         updatedAt = block.timestamp;
     }
@@ -38,5 +37,4 @@ contract MockV3Aggregator {
     ) {
         return (0, answer, 0, updatedAt, 0);
     }
-
 }
