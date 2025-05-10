@@ -2,11 +2,11 @@ import React from "react";
 import { useState, useEffect } from "react";
 import "../styles/MarketHeader.css"; // Ensure the CSS path is correct
 import ethereumIcon from "../pictures/ethereumIcon.png"; // Correctly importing the image
-import wethIcon from '../pictures/weth.png';
-import wbtcIcon from '../pictures/wbtc.png';
-import usdcIcon from '../pictures/usdc.png';
-import daiIcon from '../pictures/dai.png';
-import ghoIcon from '../pictures/gho.svg';
+import wethIcon from "../pictures/weth.png";
+import wbtcIcon from "../pictures/wbtc.png";
+import usdcIcon from "../pictures/usdc.png";
+import daiIcon from "../pictures/dai.png";
+import ghoIcon from "../pictures/gho.svg";
 
 function Header({ name, address, reserve }) {
   //--- Asset Icon Path ---//

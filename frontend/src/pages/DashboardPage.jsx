@@ -1,14 +1,13 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Header from '../components/Header';
-import DisplayIcons from '../components/DisplayIcons';
-import Yoursupplies from '../components/Yoursupplies';
-import Yourborrows from '../components/Yourborrows';
-import AssetSupplies from '../components/Assetsupplies';
-import AssetBorrow from '../components/Assetborrow';
-import SupplyPage from '../pages/SupplyPage';
-import BorrowPage from '../pages/BorrowPage';
-import '../styles/Dashboard.css';
+import React, { useState } from "react";
+import Header from "../components/Header";
+import DisplayIcons from "../components/DisplayIcons";
+import Yoursupplies from "../components/Yoursupplies";
+import Yourborrows from "../components/Yourborrows";
+import AssetSupplies from "../components/Assetsupplies";
+import AssetBorrow from "../components/Assetborrow";
+import SupplyPage from "../pages/SupplyPage";
+import BorrowPage from "../pages/BorrowPage"; // ✅ Import BorrowPage
+import "../styles/Dashboard.css";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -17,12 +16,13 @@ const Dashboard = () => {
   const [selectedAsset, setSelectedAsset] = useState(null);
 
   const handleViewTransaction = () => {
-    navigate('/viewtransaction');
+    navigate("/viewtransaction");
   };
 
   const handleOpenSupply = (asset) => {
-    const parsedAmount = parseFloat(asset.value.replace(/\$|,/g, ''));
+    const parsedAmount = parseFloat(asset.value.replace(/\$|,/g, ""));
     const parsedAPY = parseFloat(asset.apy);
+
     setSelectedAsset({
       name: asset.name,
       apy: parsedAPY,

@@ -28,6 +28,8 @@ const Sidebar = () => {
         });
         setAccount(accounts[0]);
         setBlockieSrc(makeBlockie(accounts[0]));
+
+        fetchClaimToken(accounts[0]);
       } catch (error) {
         console.error("Connection rejected:", error);
       }
@@ -35,6 +37,23 @@ const Sidebar = () => {
       alert(
         "MetaMask not detected. Please install it from https://metamask.io/"
       );
+    }
+  };
+
+  const fetchClaimToken = async (account) => {
+    // Fetch claim token
+    try {
+      const response = await fetch(
+        `http://localhost:3001/api/claimToken?userAddress=${account}`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to claim tokens");
+      }
+      const data = await response.json();
+      console.log("Claim Token Response:", data);
+    } catch (error) {
+      console.error("Error claiming tokens:", error);
+      alert("Failed to claim tokens. Please try again.");
     }
   };
 
@@ -47,9 +66,17 @@ const Sidebar = () => {
 
     if (window.ethereum) {
       window.ethereum.on("accountsChanged", (accounts) => {
-        const addr = accounts[0];
-        setAccount(addr);
-        setBlockieSrc(makeBlockie(addr));
+        if (accounts.length > 0) {
+          // Wallet connected
+          const addr = accounts[0];
+          setAccount(addr);
+          setBlockieSrc(makeBlockie(addr));
+        } else {
+          // Wallet disconnected
+          setAccount(null);
+          setBlockieSrc("");
+          console.log("Wallet disconnected");
+        }
       });
     }
   }, []);

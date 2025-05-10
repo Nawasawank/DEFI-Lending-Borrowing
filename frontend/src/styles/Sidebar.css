@@ -15,7 +15,6 @@
 .sidebar {
   width: 250px;
   height: fit-content;
-  margin-top: 10px;
   background-color: rgba(19, 19, 19, 0.3);
   color: white;
   font-family: "Ubuntu", sans-serif;
@@ -23,7 +22,6 @@
   border-radius: 10px;
   overflow-y: auto;
   margin-left: 50px;
-  margin-top: 50px;
 }
 
 .sidebar ul {

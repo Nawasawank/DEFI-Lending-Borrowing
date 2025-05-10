@@ -11,19 +11,24 @@
   position: relative;
 }
 
+.blank {
+  height: 50px;
+  width: 100vw;
+}
+
 .page-container {
   display: grid;
-  grid-template-columns: 270px 1fr; /* Sidebar takes 250px, rest is content */
-  height: 100vh;
+  grid-template-columns: 270px 1fr;
+  height: 100vh - 50px;
   width: 100%;
   left: 0;
   position: relative;
-
 }
 
 .main-content {
   padding-left: 20px;
   padding-right: 20px;
+  width: 100% - 270px;
   grid-column: 2;
   overflow-y: auto;
   position: relative;

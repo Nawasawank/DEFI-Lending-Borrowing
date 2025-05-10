@@ -10,12 +10,10 @@
   color: white;
   font-family: "Ubuntu", sans-serif;
   font-size: 36px; /* Correct font size with unit */
-  margin-top: 39px;
   position: relative;
   width: auto;
   height: 100px;
   margin-left: 70px;
-  margin-top: 50px;
 }
 
 .ethereum-icon {

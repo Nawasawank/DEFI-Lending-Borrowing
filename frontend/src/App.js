@@ -11,6 +11,7 @@ function App() {
   return (
     <Router>
       <div className="background">
+        <div className="blank"></div>
         <div className="page-container">
           <Sidebar />
           <div className="main-content">

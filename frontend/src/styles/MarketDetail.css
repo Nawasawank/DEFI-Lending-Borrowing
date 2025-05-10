@@ -140,6 +140,10 @@
   font-size: 14px;
 }
 
+.your-info .wallet-check {
+  margin-top: 20px;
+}
+
 .bold {
   font-weight: bold;
 }
