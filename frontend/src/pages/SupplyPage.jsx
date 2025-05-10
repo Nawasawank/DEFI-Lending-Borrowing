@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
-import '../styles/SupplyPage.css';
-import SupplyConfirmPage from './SupplyConfirmPage';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from "react";
+import "../styles/SupplyPage.css";
+import SupplyConfirmPage from "./SupplyConfirmPage";
+import { useNavigate } from "react-router-dom";
 
-import wethIcon from '../pictures/weth.png';
-import wbtcIcon from '../pictures/wbtc.png';
-import usdcIcon from '../pictures/usdc.png';
-import daiIcon from '../pictures/dai.png';
-import ghoIcon from '../pictures/gho.svg';
+import wethIcon from "../pictures/weth.png";
+import wbtcIcon from "../pictures/wbtc.png";
+import usdcIcon from "../pictures/usdc.png";
+import daiIcon from "../pictures/dai.png";
+import ghoIcon from "../pictures/gho.svg";
 
 const tokenIcons = {
   WETH: wethIcon,
@@ -47,29 +47,39 @@ const SupplyPage = ({ onClose, tokenName, apy, amount }) => {
           />
         ) : (
           <>
-            <button className="close-button" onClick={onClose}>×</button>
+            <button className="close-button" onClick={onClose}>
+              ×
+            </button>
 
             <h2 className="modal-title">Supply {tokenName}</h2>
 
             <div className="input-section">
               <label>Amount</label>
-              <div className="input-box" style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <div
+                className="input-box"
+                style={{
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
                 <input
                   type="number"
                   value={inputAmount}
                   onChange={(e) => setInputAmount(Number(e.target.value))}
-                  style={{ flex: 1, marginRight: '10px' }}
+                  style={{ flex: 1, marginRight: "10px" }}
                 />
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "8px" }}
+                >
                   <span className="token-name">{tokenName}</span>
                   <img
                     src={tokenIcons[tokenName]}
                     alt={tokenName}
                     style={{
-                      width: '24px',
-                      height: '24px',
-                      borderRadius: '50%',
-                      backgroundColor: 'white',
+                      width: "24px",
+                      height: "24px",
+                      borderRadius: "50%",
+                      backgroundColor: "white",
                     }}
                   />
                 </div>
@@ -90,7 +100,7 @@ const SupplyPage = ({ onClose, tokenName, apy, amount }) => {
 
             <div className="sbutton-container">
               <button
-                className={`supply-button ${hasError ? 'error shake' : ''}`}
+                className={`supply-button ${hasError ? "error shake" : ""}`}
                 onClick={handleSupplyClick}
               >
                 Supply {tokenName}
