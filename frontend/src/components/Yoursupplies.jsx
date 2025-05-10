@@ -3,11 +3,11 @@ import '../styles/Yoursupplies.css';
 import WithdrawPage from '../pages/WithdrawPage';
 
 // ✅ Token icons
-import wethIcon from '../pictures/WETH.png';
-import wbtcIcon from '../pictures/WBTC.png';
-import usdcIcon from '../pictures/USDC.png';
-import daiIcon from '../pictures/DAI.png';
-import ghoIcon from '../pictures/GHO.png';
+import wethIcon from '../pictures/weth.png';
+import wbtcIcon from '../pictures/wbtc.png';
+import usdcIcon from '../pictures/usdc.png';
+import daiIcon from '../pictures/dai.png';
+import ghoIcon from '../pictures/gho.svg';
 
 const tokenIcons = {
   WETH: wethIcon,

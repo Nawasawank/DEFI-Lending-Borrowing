@@ -8,11 +8,11 @@ import homeIcon from "../pictures/homeIcon.png";
 import marketIcon from "../pictures/marketIcon.png";
 import liquidatorIcon from "../pictures/liquidatorIcon.png";
 import walletIcon2 from "../pictures/walletIcon2.png";
-import WETH from "../pictures/WETH.png";
-import WBTC from "../pictures/WBTC.png";
-import USDC from "../pictures/USDC.png";
-import DAI from "../pictures/DAI.png";
-import GHO from "../pictures/GHO.png";
+import WETH from "../pictures/weth.png";
+import WBTC from "../pictures/wbtc.png";
+import USDC from "../pictures/usdc.png";
+import DAI from "../pictures/dai.png";
+import GHO from "../pictures/gho.svg";
 
 const Sidebar = () => {
   const [account, setAccount] = useState(null);
