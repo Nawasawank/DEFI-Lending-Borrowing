@@ -6,7 +6,7 @@ import wethIcon from "../pictures/weth.png";
 import wbtcIcon from "../pictures/wbtc.png";
 import usdcIcon from "../pictures/usdc.png";
 import daiIcon from "../pictures/dai.png";
-import ghoIcon from "../pictures/gho.png";
+import ghoIcon from "../pictures/gho.svg";
 
 const tokenIcons = {
   WETH: wethIcon,
