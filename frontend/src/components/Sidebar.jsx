@@ -65,6 +65,66 @@ const Sidebar = () => {
     setSelectedAsset(asset); // Update the selected asset
   };
 
+  const tokenAddressMap = {
+    WETH: "0xa44554B8Ab5f4fB56FF71fF8c687b4D2962E1A23",
+    WBTC: "0x6b68bBdD0aC6a46f20a2995C94eEF3686304396a",
+    USDC: "0x8D657ce9F729dcCDB87f51df99Cc9ba6e004bF44",
+    DAI: "0xB21C9aee8303c2923BFa169E771557832A651e2E",
+    GHO: "0x1D807ef9107575B24ad7970454121d2e0A5259f1",
+  };
+
+  const confirmLiquidatorSetup = async () => {
+    if (!account) {
+      alert("Please connect your wallet first.");
+      return;
+    }
+
+    if (!selectedAsset) {
+      alert("Please select an asset to proceed.");
+      return;
+    }
+
+    const tokenAddress = tokenAddressMap[selectedAsset];
+
+    if (!tokenAddress) {
+      alert("No token address found for the selected asset.");
+      return;
+    }
+
+    const payload = {
+      liquidator: account,
+      repayToken: tokenAddress,
+    };
+
+    console.log("[DEBUG] Payload being sent to backend:", payload);
+
+    try {
+      const response = await fetch(
+        "http://localhost:3001/api/setup-liquidator",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert("Liquidator setup successful!");
+        setShowOverlay(false); // Close the overlay
+      } else {
+        console.error("Error setting up liquidator:", result);
+        alert(`Error: ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Failed to set up liquidator:", error);
+      alert("Failed to set up liquidator. Please try again.");
+    }
+  };
+
   return (
     <div className="sidebar">
       <ul>
@@ -183,7 +243,9 @@ const Sidebar = () => {
               <img src={GHO} alt="GHO Icon" className="asset-icon" />
               <span className="asset-name">GHO</span>
             </div>
-            <button className="confirm-btn">Confirm</button>
+            <button className="confirm-btn" onClick={confirmLiquidatorSetup}>
+              Confirm
+            </button>
           </div>
         </div>
       )}
