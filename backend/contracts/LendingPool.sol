@@ -224,7 +224,8 @@ function borrow(address token, uint256 amount, uint256[] memory tokenPricesUSD) 
         require(tokenPricesUSD.length == supportedTokens.length, "Invalid token prices length");
 
         uint256 totalBorrowableValue = 0;
-        for (uint256 i = 0; i < supportedTokens.length; i++) {
+        uint256 len = supportedTokens.length;
+        for (uint256 i = 0; i < len; i++) {
             address colToken = supportedTokens[i];
             TokenState storage colState = tokenState[colToken];
             DepositInfo storage colDeposit = deposits[colToken][msg.sender];
@@ -239,7 +240,7 @@ function borrow(address token, uint256 amount, uint256[] memory tokenPricesUSD) 
         }
 
         uint256 borrowTokenIndex = 0;
-        for (uint256 i = 0; i < supportedTokens.length; i++) {
+        for (uint256 i = 0; i < len; i++) {
             if (supportedTokens[i] == token) {
                 borrowTokenIndex = i;
                 break;
@@ -427,7 +428,8 @@ function borrow(address token, uint256 amount, uint256[] memory tokenPricesUSD) 
 
         require(tokenPricesUSD.length == supportedTokens.length, "Invalid token prices length");
 
-        for (uint256 i = 0; i < supportedTokens.length; i++) {
+        uint256 len = supportedTokens.length;
+        for (uint256 i = 0; i < len; i++) {
             address colToken = supportedTokens[i];
             TokenState storage t = tokenState[colToken];
             DepositInfo storage d = deposits[colToken][user];
@@ -448,7 +450,7 @@ function borrow(address token, uint256 amount, uint256[] memory tokenPricesUSD) 
         }
 
         uint256 borrowTokenIndex = 0;
-        for (uint256 i = 0; i < supportedTokens.length; i++) {
+        for (uint256 i = 0; i < len; i++) {
             if (supportedTokens[i] == token) {
                 borrowTokenIndex = i;
                 break;
@@ -477,7 +479,8 @@ function borrow(address token, uint256 amount, uint256[] memory tokenPricesUSD) 
 
         require(tokenPricesUSD.length == supportedTokens.length, "Invalid token prices length");
 
-        for (uint256 i = 0; i < supportedTokens.length; i++) {
+        uint256 len = supportedTokens.length;
+        for (uint256 i = 0; i < len; i++) {
             address colToken = supportedTokens[i];
             TokenState storage t = tokenState[colToken];
             DepositInfo storage d = deposits[colToken][user];

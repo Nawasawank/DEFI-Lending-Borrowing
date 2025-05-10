@@ -62,7 +62,7 @@ describe("PriceOracle", function () {
   it("should get the latest price for each token", async () => {
     for (const symbol of SYMBOLS) {
       const price = await priceOracle.getLatestPrice(symbol);
-      expect(price.toString()).to.equal(INITIAL_PRICES[symbol].toString());
+      expect(price).to.equal(INITIAL_PRICES[symbol]);
     }
   });
 
@@ -92,7 +92,7 @@ describe("PriceOracle", function () {
     await mockPriceFeeds["ETH"].updateAnswer(newPrice);
 
     const updated = await priceOracle.getLatestPrice("ETH");
-    expect(updated.toString()).to.equal(newPrice.toString());
+    expect(updated).to.equal(newPrice);
 
     await mockPriceFeeds["ETH"].updateAnswer(INITIAL_PRICES.ETH);
   });
@@ -109,6 +109,7 @@ describe("PriceOracle", function () {
     await mockPriceFeeds["USDC"].updateAnswer(manipulatedPrice);
   
     const latestPrice = await priceOracle.getLatestPrice("USDC");
+    expect(latestPrice).to.equal(manipulatedPrice);
   
     const lowerBound = 90_000_000;
     const upperBound = 110_000_000;
@@ -117,5 +118,86 @@ describe("PriceOracle", function () {
   
     await mockPriceFeeds["USDC"].updateAnswer(INITIAL_PRICES.USDC);
   });
+
+  it("should return safe price and store in lastKnownPrices", async () => {
+    const symbol = "ETH";
+    const expected = INITIAL_PRICES[symbol];
+    
+    const tx = await priceOracle.getSafePrice(symbol);
+    await tx.wait();
+    
+    const lastKnown = await priceOracle.lastKnownPrices(symbol);
+    expect(lastKnown).to.equal(expected);
+  });
+
+  it("should fallback to lastKnownPrices if data is stale", async () => {
+    const symbol = "DAI";
+    const expected = INITIAL_PRICES[symbol];
+    
+    const tx1 = await priceOracle.getSafePrice(symbol);
+    await tx1.wait();
+
+    await network.provider.send("evm_increaseTime", [3700]); // > 1 hour
+    await network.provider.send("evm_mine");
+
+    const tx2 = await priceOracle.getSafePrice(symbol);
+    await tx2.wait();
+    
+    const lastKnown = await priceOracle.lastKnownPrices(symbol);
+    expect(lastKnown).to.equal(expected);
+
+    await mockPriceFeeds[symbol].updateAnswer(INITIAL_PRICES[symbol]);
+  });
+it("should revert if setPriceFeed is called with address(0)", async () => {
+  await expect(priceOracle.setPriceFeed("TEST", ethers.ZeroAddress)).to.be.revertedWith("Invalid address");
+});
+it("should fallback if price <= 0", async () => {
+  const symbol = "DAI";
+
+  // ensure safe price is stored first
+  await priceOracle.getSafePrice(symbol);
+
+  // simulate faulty price
+  await mockPriceFeeds[symbol].updateAnswer(0);
+
+  const tx = await priceOracle.getSafePrice(symbol);
+  await tx.wait();
+
+  const fallback = await priceOracle.lastKnownPrices(symbol);
+  expect(fallback).to.equal(INITIAL_PRICES[symbol]); // fallback should be previous good price
+});
+it("should fallback if price is too high", async () => {
+  const symbol = "DAI";
+
+  // make sure lastKnownPrices is set
+  await priceOracle.getSafePrice(symbol);
+
+  const tooHighPrice = ethers.toBigInt(1_000_000 * 1e8 + 1);
+  await mockPriceFeeds[symbol].updateAnswer(tooHighPrice);
+
+  const tx = await priceOracle.getSafePrice(symbol);
+  await tx.wait();
+
+  const fallback = await priceOracle.lastKnownPrices(symbol);
+  expect(fallback).to.equal(INITIAL_PRICES[symbol]); // fallback used to previous good price
+});
+it("should revert if getSafePrice is called on unset symbol", async () => {
+  await expect(priceOracle.getSafePrice("INVALID")).to.be.revertedWith("Price feed not set");
+});
+it("should revert if getDescription is called on unset symbol", async () => {
+  await expect(priceOracle.getDescription("INVALID")).to.be.revertedWith("Price feed not set");
+});
+it("should revert if getDecimals is called on unset symbol", async () => {
+  await expect(priceOracle.getDecimals("INVALID")).to.be.revertedWith("Price feed not set");
+});
+it("should revert if getLatestTimestamp is called on unset symbol", async () => {
+  await expect(priceOracle.getLatestTimestamp("INVALID")).to.be.revertedWith("Price feed not set");
+});
+
+
+
+
+
+
   
 });

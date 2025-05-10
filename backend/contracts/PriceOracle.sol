@@ -61,12 +61,6 @@ contract PriceOracle is Ownable {
         return AggregatorV3Interface(priceFeeds[symbol]).description();
     }
 
-    function getPriceInUSD(string memory symbol) public returns (uint) {
-        int rawPrice = getSafePrice(symbol);
-        require(rawPrice > 0, "Invalid price");
-        uint8 decimals = getDecimals(symbol);
-        return uint(rawPrice) / (10 ** (decimals - 2)); // scale to cents
-    }
 
     function getLatestTimestamp(string memory symbol) public view returns (uint) {
         require(priceFeeds[symbol] != address(0), "Price feed not set");
@@ -74,9 +68,4 @@ contract PriceOracle is Ownable {
         return timeStamp;
     }
 
-    function getLatestPriceAndTimestamp(string memory symbol) public view returns (int price, uint updatedAt) {
-        require(priceFeeds[symbol] != address(0), "Price feed not set");
-        (, int latestPrice,, uint timeStamp,) = AggregatorV3Interface(priceFeeds[symbol]).latestRoundData();
-        return (latestPrice, timeStamp);
-    }
 }
