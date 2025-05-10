@@ -1,7 +1,7 @@
 import React from 'react';
-import '../styles/DisplayIcons.css';  // Ensure you create this CSS file
+import '../styles/DisplayIcons.css';
 
-const DisplayIcons = () => {
+const DisplayIcons = ({ onViewTransactionClick }) => {
   return (
     <div className="icons-container">
       <div className="icon-group">
@@ -18,7 +18,9 @@ const DisplayIcons = () => {
           <span className="icon-value">0.5</span>
         </div>
       </div>
-      <button className="view-transaction-button">View Transaction</button>
+      <button className="view-transaction-button" onClick={onViewTransactionClick}>
+        View Transaction
+      </button>
     </div>
   );
 };
