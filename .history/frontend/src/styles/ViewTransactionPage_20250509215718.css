@@ -1,0 +1,103 @@
+.view-container {
+  display: flex;
+  height: 100vh;
+  background: linear-gradient(to bottom right, #d6d0f5, #ede1fc);
+  font-family: 'Ubuntu', sans-serif;
+}
+
+.view-main {
+  flex-grow: 1;
+  padding: 30px;
+}
+
+.transaction-header {
+  margin-bottom: 20px;
+  margin-right: 20px;
+}
+
+.transaction-header h2 {
+  margin-bottom: 12px;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.filter-select,
+.filter-input {
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  background-color: white;
+  font-family: 'Ubuntu', sans-serif;
+  font-size: 14px;
+  min-width: 150px;
+}
+
+.range-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.range-group label {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-separator {
+  font-size: 16px;
+  color: #888;
+}
+
+.filter-button {
+  padding: 10px 16px;
+  background-color: black;
+  color: white;
+  font-weight: bold;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.filter-button:hover {
+  background-color: #333;
+}
+
+.tx-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.tx-table th,
+.tx-table td {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.tx-table th {
+  background-color: #ecebf9;
+  font-weight: 600;
+}
+
+.tx-table tbody tr:nth-child(even) {
+  background-color: #f9f9ff;
+}
