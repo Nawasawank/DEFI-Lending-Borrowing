@@ -13,7 +13,7 @@
 .icon-group {
   display: flex;
   margin-left: 49px;
-  margin-right: 300px;
+  margin-right: 100px;
 }
 
 .icon-box {
@@ -24,6 +24,9 @@
   border-radius: 8px; /* Rounded corners for each icon box */
   margin-right: 25px; /* Space between the Net Worth and Net APY */
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.5);
+  width: auto;
+
+
 }
 
 .icon-label {
@@ -34,10 +37,10 @@
 }
 
 .icon-value {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: bold;
   color: #ffffff;
-  width: 28px;
+  width: auto;
 }
 
 .view-transaction-button {

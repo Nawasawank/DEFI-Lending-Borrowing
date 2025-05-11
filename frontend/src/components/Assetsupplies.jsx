@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import '../styles/Assetsupplies.css';
 
 import wethIcon from '../pictures/weth.png';
@@ -16,13 +16,46 @@ const tokenIcons = {
 };
 
 const Assetsupplies = ({ onOpenSupply }) => {
-  const assetsData = [
-    { name: 'WETH', value: '$1,200', apy: '3.45%', collateral: 'Yes' },
-    { name: 'WBTC', value: '$2,300', apy: '4.15%', collateral: 'Yes' },
-    { name: 'USDC', value: '$5,000', apy: '2.20%', collateral: 'Yes' },
-    { name: 'DAI', value: '$900', apy: '2.71%', collateral: 'Yes' },
-    { name: 'GHO', value: '$1,000', apy: '3.60%', collateral: 'No' }
-  ];
+  const [account, setAccount] = useState(null);
+  const [assetsData, setAssetsData] = useState([]);
+
+  useEffect(() => {
+    const getAccount = async () => {
+      if (window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          setAccount(accounts[0]);
+        } catch (error) {
+          console.error('MetaMask error:', error);
+        }
+      }
+    };
+    getAccount();
+  }, []);
+
+  useEffect(() => {
+    const fetchAssets = async () => {
+      if (!account) return;
+      try {
+        const response = await fetch(`http://localhost:3001/api/getAssetOverview?userAddress=${account}`);
+        const data = await response.json();
+
+        const parsed = data.assets.map((item) => ({
+          name: item.symbol,
+          value: `$${item.walletBalance}`, // keep raw value, no decimal trimming
+          apy: item.apy,
+          collateral: item.canBeCollateral ? 'Yes' : 'No',
+        }));
+
+        setAssetsData(parsed);
+        console.log("Parsed asset data:", parsed);
+      } catch (err) {
+        console.error('Error fetching asset overview:', err);
+      }
+    };
+
+    fetchAssets();
+  }, [account]);
 
   return (
     <div className="assetsupply-container">
@@ -46,7 +79,7 @@ const Assetsupplies = ({ onOpenSupply }) => {
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <img
-                      src={tokenIcons[asset.name]}
+                      src={tokenIcons[asset.name] || ''}
                       alt={asset.name}
                       style={{
                         width: '24px',

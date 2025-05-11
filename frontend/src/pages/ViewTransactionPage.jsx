@@ -16,6 +16,14 @@ const tokenIcons = {
   GHO: ghoIcon,
 };
 
+const tokenAddressesToSymbols = {
+  "0x9894E21263A476034b7080a46a455d7D138F5FeE": "WETH",
+  "0xB3FF8Cffe71dF679b167A9316D5FAd2155204181": "WBTC",
+  "0x9757838BEcc9E318D5e6D287097Fc3F2b8aAda10": "USDC",
+  "0x08e6338c405fcE3E65090cCbb6193B809BeD38f5": "DAI",
+  "0xd7bBf20510A379F1E496558dfF163e45CFb96f1b": "GHO",
+};
+
 const ViewTransaction = () => {
   const [history, setHistory] = useState([]);
   const [filtered, setFiltered] = useState([]);
@@ -25,40 +33,37 @@ const ViewTransaction = () => {
     amount: "",
     date: "",
   });
-  const userAddress = "0xYourWalletAddress"; // Replace with real user address
+  const [account, setAccount] = useState(null);
 
   useEffect(() => {
-    // Mock data for UI testing
-    const mockData = [
-      {
-        type: "Deposit",
-        token: "DAI",
-        amount: "100.00",
-        timestamp: Math.floor(Date.now() / 1000) - 86400 * 2,
-      },
-      {
-        type: "Withdraw",
-        token: "USDC",
-        amount: "50.00",
-        timestamp: Math.floor(Date.now() / 1000) - 86400 * 1,
-      },
-      {
-        type: "Borrow",
-        token: "WETH",
-        amount: "1.25",
-        timestamp: Math.floor(Date.now() / 1000),
-      },
-      {
-        type: "Repay",
-        token: "WBTC",
-        amount: "0.005",
-        timestamp: Math.floor(Date.now() / 1000) - 86400 * 5,
-      },
-    ];
-
-    setHistory(mockData);
-    setFiltered(mockData);
+    const getAccount = async () => {
+      if (window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+          setAccount(accounts[0]);
+        } catch (error) {
+          console.error("MetaMask error:", error);
+        }
+      }
+    };
+    getAccount();
   }, []);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      if (!account) return;
+      try {
+        const response = await fetch(`http://localhost:3001/api/history?userAddress=${account}`);
+        const result = await response.json();
+        const historyData = result.history || [];
+        setHistory(historyData);
+        setFiltered(historyData);
+      } catch (error) {
+        console.error("Error fetching history:", error);
+      }
+    };
+    fetchHistory();
+  }, [account]);
 
   const formatDate = (timestamp) => {
     const date = new Date(timestamp * 1000);
@@ -76,7 +81,7 @@ const ViewTransaction = () => {
     if (type) result = result.filter((tx) => tx.type === type);
     if (token)
       result = result.filter(
-        (tx) => tx.token.toLowerCase() === token.toLowerCase()
+        (tx) => tokenAddressesToSymbols[tx.token]?.toLowerCase() === token.toLowerCase()
       );
     if (amount)
       result = result.filter((tx) => Number(tx.amount) >= Number(amount));
@@ -149,39 +154,36 @@ const ViewTransaction = () => {
           <table className="tx-table">
             <thead className="tx-table-header">
               <tr>
-                <th>Assets</th>
+                <th>Asset</th>
                 <th>Transaction Type</th>
                 <th>Amount</th>
                 <th>Date</th>
               </tr>
             </thead>
             <tbody className="tx-table-body">
-              {filtered.map((tx, index) => (
-                <tr key={index}>
-                  <td
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                    }}
-                  >
-                    <img
-                      src={tokenIcons[tx.token]}
-                      alt={tx.token}
-                      style={{
-                        width: "20px",
-                        height: "20px",
-                        borderRadius: "50%",
-                        backgroundColor: "white",
-                      }}
-                    />
-                    {tx.token}
-                  </td>
-                  <td>{tx.type}</td>
-                  <td>{tx.amount}</td>
-                  <td>{formatDate(tx.timestamp)}</td>
-                </tr>
-              ))}
+              {filtered.map((tx, index) => {
+                const symbol = tokenAddressesToSymbols[tx.token] || tx.token.slice(0, 6) + "...";
+                return (
+                  <tr key={index}>
+                    <td style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <img
+                        src={tokenIcons[symbol]}
+                        alt={symbol}
+                        style={{
+                          width: "20px",
+                          height: "20px",
+                          borderRadius: "50%",
+                          backgroundColor: "white",
+                        }}
+                      />
+                      {symbol}
+                    </td>
+                    <td>{tx.type}</td>
+                    <td>{tx.amount}</td>
+                    <td>{formatDate(tx.timestamp)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
