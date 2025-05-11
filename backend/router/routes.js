@@ -31,6 +31,7 @@ router.get("/netOverview", LendingController.getNetOverview); //get supply APY h
 
 // router.get('/apr-history', LendingController.recordAPRSnapshots);
 router.get("/lender-collateral", LendingController.getLenderCollateral); //get user's collateral for all assets
+router.get("/all-collateral", LendingController.getTotalCollateralRawSum); //get user's supply for all assets
 router.get("/sumCollateral", LendingController.SumAllCollateral); //Total collateral that users supply in USD
 router.get("/supply-totalAPY", LendingController.TotalAPY);
 router.get("/previewCollateral", LendingController.PreviewCollateralAfterWithdraw); // Preview collateral after withdrawal

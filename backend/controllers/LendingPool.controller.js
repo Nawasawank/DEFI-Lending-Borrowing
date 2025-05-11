@@ -543,6 +543,45 @@ const LendingController = {
       return res.status(500).json({ error: "Failed to fetch transaction history", details: err.message });
     }
   },  
+async getTotalCollateralRawSum(req, res) {
+  try {
+    const { userAddress } = req.query;
+    if (!isAddress(userAddress)) {
+      return res.status(400).json({ error: 'Invalid user address' });
+    }
+
+    const result = await LendingPoolContract.methods.getUserCollateral(userAddress).call();
+    const tokenAddresses = result[0];
+    const balances = result[1];
+
+    let totalRawSum = 0;
+
+    for (let i = 0; i < tokenAddresses.length; i++) {
+      const tokenAddress = tokenAddresses[i];
+      const rawBalance = balances[i];
+
+      if (rawBalance === "0") continue;
+
+      const tokenContract = getTokenContract(tokenAddress);
+      const decimalsRaw = await tokenContract.methods.decimals().call();
+      const decimals = Number(decimalsRaw);
+      const balance = parseFloat(ethers.formatUnits(rawBalance.toString(), decimals));
+
+      totalRawSum += balance;
+    }
+
+    return res.status(200).json({
+      user: userAddress,
+      totalCollateralTokenSum: totalRawSum.toFixed(18)
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      error: 'Failed to calculate total collateral sum',
+      details: err.message
+    });
+  }
+},
 
 async getLenderCollateral(req, res) {
   try {
