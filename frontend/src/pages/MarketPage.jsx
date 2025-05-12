@@ -88,6 +88,23 @@ function Market() {
     fetchMarketAssetsAndAPYs();
   }, []);
 
+  const formatNumber = (value) => {
+    if (!value) return "$0.00";
+
+    const numericValue = parseFloat(value.replace(/[$,]/g, ""));
+
+    if (numericValue >= 1000000000) {
+      return `$${(numericValue / 1000000000).toFixed(2)} B`; // Convert to billions
+    } else if (numericValue >= 1000000) {
+      return `$${(numericValue / 1000000).toFixed(2)} M`; // Convert to millions
+    }
+    // Format smaller values with commas
+    return `$${numericValue.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
   //--- Asset Icon Path ---//
   const assetIcons = {
     WETH: wethIcon,
@@ -105,15 +122,27 @@ function Market() {
       <div className="market-info-container">
         <div className="market-info">
           <p>Total Market Size</p>
-          <p>{marketDetail?.totalMarketSize}</p>
+          <p>
+            {marketDetail?.totalMarketSize
+              ? formatNumber(marketDetail.totalMarketSize)
+              : "$0.00"}
+          </p>
         </div>
         <div className="market-info">
           <p>Total Available</p>
-          <p>{marketDetail?.totalAvailable}</p>
+          <p>
+            {marketDetail?.totalAvailable
+              ? formatNumber(marketDetail.totalAvailable)
+              : "$0.00"}
+          </p>
         </div>
         <div className="market-info">
           <p>Total Borrows</p>
-          <p>{marketDetail?.totalBorrows}</p>
+          <p>
+            {marketDetail?.totalBorrows
+              ? formatNumber(marketDetail.totalBorrows)
+              : "$0.00"}
+          </p>
         </div>
       </div>
 

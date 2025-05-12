@@ -11,10 +11,10 @@ function App() {
   return (
     <Router>
       <div className="background">
-        <div className="blank"></div>
         <div className="page-container">
           <Sidebar />
           <div className="main-content">
+            <div className="blank"></div>
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/market" element={<MarketPage />} />

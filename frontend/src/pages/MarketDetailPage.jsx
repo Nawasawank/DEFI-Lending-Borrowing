@@ -153,7 +153,7 @@ function MarketDetail() {
   }, []);
 
   //--- Fetch Wallet Balance ---//
-  const [walletBalance, setWalletBalance] = useState(null);
+  const [walletBalance, setWalletBalance] = useState(0);
   useEffect(() => {
     const fetchWalletBalance = async () => {
       if (account) {
@@ -203,6 +203,23 @@ function MarketDetail() {
     fetchWalletBalance();
   }, [account, name]);
 
+  const formatNumber = (value) => {
+    if (!value) return "$0.00";
+
+    const numericValue = parseFloat(value.replace(/[$,]/g, ""));
+
+    if (numericValue >= 1000000000) {
+      return `$${(numericValue / 1000000000).toFixed(2)} B`; // Convert to billions
+    } else if (numericValue >= 1000000) {
+      return `$${(numericValue / 1000000).toFixed(2)} M`; // Convert to millions
+    }
+    // Format smaller values with commas
+    return `$${numericValue.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
   //--- Supply-Borrow Modal ---//
   const [isSupplyOpen, setIsSupplyOpen] = useState(false);
   const [isBorrowOpen, setIsBorrowOpen] = useState(false);
@@ -239,8 +256,8 @@ function MarketDetail() {
                       {marketAssetsData.supplyCap}
                     </p>
                     <p>
-                      {marketAssetsData.suppliedInUSD} of{" "}
-                      {marketAssetsData.supplyCapInUSD}
+                      {formatNumber(marketAssetsData.suppliedInUSD)} of{" "}
+                      {formatNumber(marketAssetsData.supplyCapInUSD)}
                     </p>
                   </div>
                   <div className="upper-summary">
@@ -276,8 +293,8 @@ function MarketDetail() {
                       {marketAssetsData.borrowCap}
                     </p>
                     <p>
-                      {marketAssetsData.borrowedInUSD} of{" "}
-                      {marketAssetsData.borrowCapInUSD}
+                      {formatNumber(marketAssetsData.borrowedInUSD)} of{" "}
+                      {formatNumber(marketAssetsData.borrowCapInUSD)}
                     </p>
                   </div>
                   <div className="upper-summary">
@@ -287,7 +304,7 @@ function MarketDetail() {
                   <div className="upper-summary">
                     <p>Borrow cap</p>
                     <p className="bold">{marketAssetsData.borrowCap}</p>
-                    <p>{marketAssetsData.borrowCapInUSD}</p>
+                    <p>{formatNumber(marketAssetsData.borrowCapInUSD)}</p>
                   </div>
                 </div>
                 <p className="bold">Collector Info</p>
@@ -325,7 +342,7 @@ function MarketDetail() {
                     <div className="wallet-info">
                       <p>wallet balance</p>
                       <p>
-                        {walletBalance ? walletBalance.balance : 0} {name}
+                        {walletBalance.balance} {name}
                       </p>
                     </div>
                   </div>
@@ -333,9 +350,9 @@ function MarketDetail() {
                     <div className="sb-detail">
                       <p>Available to supply</p>
                       <p className="bold">
-                        {walletBalance ? walletBalance.balance : 0} {name}
+                        {walletBalance.balance} {name}
                       </p>
-                      <p>{walletBalance ? walletBalance.usdValue : 0}</p>
+                      <p>{formatNumber(walletBalance.usdValue)}</p>
                     </div>
                     <button
                       className="sb-button"
@@ -348,7 +365,7 @@ function MarketDetail() {
                     <div className="sb-detail">
                       <p>Available to borrow</p>
                       <p className="bold">
-                        {walletBalance ? walletBalance.maxBorrow : 0} {name}
+                        {formatNumber(walletBalance.maxBorrow)} {name}
                       </p>
                       <p>$0</p>
                     </div>

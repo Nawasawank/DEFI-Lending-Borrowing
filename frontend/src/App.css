@@ -13,23 +13,21 @@
 
 .blank {
   height: 50px;
-  width: 100vw;
+  width: 100%;
 }
 
 .page-container {
-  display: grid;
-  grid-template-columns: 270px 1fr;
-  height: 100vh - 50px;
+  display: flex;
+  height: 100vh;
   width: 100%;
-  left: 0;
   position: relative;
 }
 
 .main-content {
   padding-left: 20px;
   padding-right: 20px;
-  width: 100% - 270px;
-  grid-column: 2;
+  flex: 1;
+  height: 100vh;
   overflow-y: auto;
   position: relative;
 }
