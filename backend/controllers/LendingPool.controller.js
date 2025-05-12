@@ -1144,7 +1144,6 @@ async getMaxBorrowable(req, res) {
       return res.status(400).json({ error: `Symbol ${symbol} is not mapped to a price feed` });
     }
 
-    // Fetch collateral + price
     const [priceData, collateralData] = await Promise.all([
       fetchTokenPrices([cgID]),
       getTotalCollateralUSD(userAddress)
@@ -1156,19 +1155,14 @@ async getMaxBorrowable(req, res) {
     }
 
     const collateralUSD = parseFloat(collateralData.totalCollateralUSD);
-
     const maxLTVBP = Number(maxLTVBPRaw);
-    console.log("Max LTV BP:", maxLTVBP);
-    
+
     const maxBorrowableUSD = collateralUSD * (maxLTVBP / 1e5);
 
-    // 📌 accrue borrow interest first
     await LendingPoolContract.methods.accrueBorrowInterest(assetAddress).send({ from: userAddress });
 
-    // 📌 then get current user debt
     const debtRaw = await LendingPoolContract.methods.repayBalanceOf(assetAddress, userAddress).call();
     const userBorrowBalance = parseFloat(ethers.formatUnits(debtRaw.toString(), decimals));
-
     const userBorrowUSD = userBorrowBalance * priceUSD;
 
     const availableBorrowUSD = Math.max(maxBorrowableUSD - userBorrowUSD, 0);
@@ -1177,9 +1171,8 @@ async getMaxBorrowable(req, res) {
     return res.status(200).json({
       asset: assetAddress,
       symbol,
-      maxBorrow: availableBorrowAmount > 0
-        ? availableBorrowAmount.toFixed(decimals)
-        : "0",
+      maxBorrow: availableBorrowAmount.toFixed(decimals),
+      maxBorrowUSD: availableBorrowUSD.toFixed(decimals),
     });
 
   } catch (err) {
