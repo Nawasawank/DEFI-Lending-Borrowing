@@ -18,9 +18,10 @@ function Header({ name, address, reserve }) {
     GHO: ghoIcon,
   };
 
-  const [utilRate, setUtilRate] = useState(null);
-  const [availableLiquidity, setAvailableLiquidity] = useState(null);
-  const [oraclePrice, setOraclePrice] = useState(null);
+  const [utilRate, setUtilRate] = useState(0);
+  const [availableLiquidity, setAvailableLiquidity] = useState(0);
+  const [oraclePrice, setOraclePrice] = useState(0);
+  const [cachedPrices, setCachedPrices] = useState({});
   useEffect(() => {
     //--- Fetch Utilization Rate ---//
     const fetchUtilRate = async () => {
@@ -79,7 +80,25 @@ function Header({ name, address, reserve }) {
     fetchPrice();
     fetchUtilRate();
     fetchAvailLiquid();
-  }, []);
+  }, [name]);
+
+  const formatNumber = (value) => {
+    if (!value) return "$0.00";
+
+    const stringValue = typeof value === "string" ? value : value.toString();
+    const numericValue = parseFloat(stringValue.replace(/[$,]/g, ""));
+
+    if (numericValue >= 1000000000) {
+      return `$${(numericValue / 1000000000).toFixed(2)} B`; // Convert to billions
+    } else if (numericValue >= 1000000) {
+      return `$${(numericValue / 1000000).toFixed(2)} M`; // Convert to millions
+    }
+    // Format smaller values with commas
+    return `$${numericValue.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
 
   return (
     <header className="market-header">
@@ -100,11 +119,11 @@ function Header({ name, address, reserve }) {
       <div className="asset-info-container">
         <div className="asset-info">
           <p>Reserve Size</p>
-          <p>{reserve}</p>
+          <p>{formatNumber(reserve)}</p>
         </div>
         <div className="asset-info">
           <p>Available Liquidity</p>
-          <p>${availableLiquidity}</p>
+          <p>${parseFloat(availableLiquidity).toFixed(2)}</p>
         </div>
         <div className="asset-info">
           <p>Utilization Rate</p>
@@ -112,7 +131,7 @@ function Header({ name, address, reserve }) {
         </div>
         <div className="asset-info">
           <p>Oracle Prize</p>
-          <p>{oraclePrice}</p>
+          <p>{formatNumber(oraclePrice)}</p>
         </div>
       </div>
     </header>
