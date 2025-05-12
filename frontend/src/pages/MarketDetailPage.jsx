@@ -191,8 +191,11 @@ function MarketDetail() {
           setWalletBalance((prevData) => ({
             ...(prevData || {}),
             maxBorrow: borrow.maxBorrow,
+            maxBorrowUSD: borrow.maxBorrowUSD,
           }));
+
           console.log("Max Borrow:", borrow.maxBorrow);
+          console.log("Max Borrow USD:", borrow.maxBorrowUSD);
         } catch (error) {
           console.error("Fetch max borrow error:", error);
         }
@@ -367,7 +370,7 @@ function MarketDetail() {
                       <p className="bold">
                         {formatNumber(walletBalance.maxBorrow)} {name}
                       </p>
-                      <p>$0</p>
+                      <p>{formatNumber(walletBalance.maxBorrowUSD)}</p>
                     </div>
                     <button
                       className="sb-button"

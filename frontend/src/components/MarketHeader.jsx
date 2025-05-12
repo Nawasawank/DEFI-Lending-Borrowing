@@ -22,6 +22,7 @@ function Header({ name, address, reserve }) {
   const [availableLiquidity, setAvailableLiquidity] = useState(0);
   const [oraclePrice, setOraclePrice] = useState(0);
   const [cachedPrices, setCachedPrices] = useState({});
+  const [cacheTimestamps, setCacheTimestamps] = useState({});
   useEffect(() => {
     //--- Fetch Utilization Rate ---//
     const fetchUtilRate = async () => {
@@ -61,6 +62,14 @@ function Header({ name, address, reserve }) {
 
     //--- Fetch Oracle Price ---//
     const fetchPrice = async () => {
+      const now = Date.now();
+      const cacheExpiry = 5 * 60 * 1000;
+
+      if (cachedPrices[name] && now - cacheTimestamps[name] < cacheExpiry) {
+        setOraclePrice(cachedPrices[name]); // Use cached value if not expired
+        return;
+      }
+
       try {
         const response = await fetch(`http://localhost:3001/api/coin-prices`);
         if (!response.ok) {
@@ -70,6 +79,10 @@ function Header({ name, address, reserve }) {
         const coinPrice = await response.json();
         const matchingPrice = coinPrice.prices[name];
         setOraclePrice(matchingPrice);
+
+        // Update cache and timestamp
+        setCachedPrices((prev) => ({ ...prev, [name]: matchingPrice }));
+        setCacheTimestamps((prev) => ({ ...prev, [name]: now }));
 
         console.log("Oracle Price: ", matchingPrice);
       } catch (error) {
