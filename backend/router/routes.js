@@ -44,7 +44,7 @@ router.get("/MaxBorrow", LendingController.getMaxBorrowable); // Get max borrowa
 router.get("/previewRemaingDebt", LendingController.PreviewRemainingDebtAfterRepay); // Preview health factor after supplying a value
 router.get("/borrower-debt", LendingController.getBorrowerDebt); // Preview borrow amount after withdrawal
 router.get("/total-borrowed", LendingController.getTotalBorrowed); // Preview borrow amount after withdrawal\
-router.get("/check-capacity",LendingController.checkCapsStatus); //check capacity is full or not
+router.get("/check-status",LendingController.checkTokenStatus); //check capacity is full or not
 // Borrow and Repay routes
 router.post("/borrow", LendingController.borrow); // allow user to borrow tokens
 router.post("/repay", LendingController.repay); // allow user to repay borrowed tokens

@@ -2279,7 +2279,7 @@ async PreviewHealthFactorRepay(req, res) {
   }
 },
 
-async checkCapsStatus(req, res) {
+async checkTokenStatus(req, res) {
   try {
     const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
 
@@ -2296,16 +2296,23 @@ async checkCapsStatus(req, res) {
         const supplyCap = BigInt(supplyCapRaw);
         const borrowCap = BigInt(borrowCapRaw);
 
+        const availableLiquidity = totalSupplied > totalBorrowed
+          ? totalSupplied - totalBorrowed
+          : 0n;
+
         return {
           asset: assetAddress,
           isSupplyFull: totalSupplied >= supplyCap,
-          isBorrowFull: totalBorrowed >= borrowCap
+          isBorrowFull: totalBorrowed >= borrowCap,
+          isEmpty: availableLiquidity === 0n,
         };
       } catch (tokenErr) {
         return {
           asset: assetAddress,
           isSupplyFull: null,
           isBorrowFull: null,
+          isEmpty: null,
+          availableLiquidity: null,
           error: tokenErr.message
         };
       }
@@ -2314,11 +2321,12 @@ async checkCapsStatus(req, res) {
     return res.status(200).json(results);
   } catch (err) {
     return res.status(500).json({
-      error: 'Failed to check caps status',
+      error: 'Failed to check token status',
       details: err.message
     });
   }
 }
+
 
 
 };
