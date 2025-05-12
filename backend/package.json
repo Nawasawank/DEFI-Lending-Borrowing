@@ -20,6 +20,8 @@
     "express": "^5.1.0",
     "node-fetch": "^3.3.2",
     "nodemon": "^3.1.9",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
     "sinon": "^20.0.0",
     "truffle": "^5.11.5",
     "web3-validator": "^2.0.6"
