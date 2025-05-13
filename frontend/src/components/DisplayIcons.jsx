@@ -38,7 +38,7 @@ const DisplayIcons = ({ onViewTransactionClick }) => {
 
         setNetOverview({
           netWorthUSD: isFinite(netData.netWorthUSD) ? parseFloat(netData.netWorthUSD).toFixed(2) : '-',
-          netAPY: isFinite(netData.netAPY) ? parseFloat(netData.netAPY).toFixed(2) + '%' : '-',
+          netAPY: isFinite(parseFloat(netData.netAPY)) ? parseFloat(netData.netAPY.replace('%', '')).toFixed(2) + '%' : '-',
           healthFactor: isFinite(healthData.healthFactor) ? parseFloat(healthData.healthFactor).toFixed(2) : '-',
         });
       } catch (err) {
