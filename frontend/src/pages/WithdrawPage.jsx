@@ -70,35 +70,38 @@ const WithdrawPage = ({ onClose, tokenName = 'USDC' }) => {
     fetchSupplies();
   }, [account, tokenName]);
 
-  const handleWithdraw = async () => {
-    const assetAddress = tokenAddresses[tokenName];
-    if (amount > 0 && amount <= maxWithdraw) {
-      try {
-        const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/withdraw`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fromAddress: account,
-            assetAddress,
-            amount,
-          }),
-        });
+const handleWithdraw = async () => {
+  const assetAddress = tokenAddresses[tokenName];
+  const parsedAmount = parseFloat(amount);
 
-        const result = await res.json();
-        if (result.message === "Withdrawal successful") {
-          setShowConfirm(true);
-          setHasError(false);
-        } else {
-          setHasError(true);
-        }
-      } catch (err) {
-        console.error("Withdrawal request failed:", err);
+  if (parsedAmount > 0 && parsedAmount <= maxWithdraw) {
+    try {
+      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/withdraw`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fromAddress: account,
+          assetAddress,
+          amount: parsedAmount.toFixed(18), // ✅ Use this here
+        }),
+      });
+
+      const result = await res.json();
+      if (result.message === "Withdrawal successful") {
+        setShowConfirm(true);
+        setHasError(false);
+      } else {
         setHasError(true);
       }
-    } else {
+    } catch (err) {
+      console.error("Withdrawal request failed:", err);
       setHasError(true);
     }
-  };
+  } else {
+    setHasError(true);
+  }
+};
+
 
   const handleCloseAll = () => {
     setShowConfirm(false);
@@ -143,7 +146,7 @@ const WithdrawPage = ({ onClose, tokenName = 'USDC' }) => {
                 </div>
               </div>
               <div className="max-text">
-                Available {maxWithdraw.toFixed(4)} <strong>Max</strong>
+                Available {maxWithdraw.toFixed(18)} <strong>Max</strong>
               </div>
             </div>
 
