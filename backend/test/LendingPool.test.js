@@ -191,7 +191,7 @@ describe("LendingPool deposit and withdraw with custom InterestRateModel ", func
   it("should skip accrueInterest if elapsed < 1 second", async () => {
   const tokenAddress = await token.getAddress();
   await pool.accrueInterest(tokenAddress);
-  await pool.accrueInterest(tokenAddress); // immediate call again
+  await pool.accrueInterest(tokenAddress); 
 });
 it("should return 0 supply APY if user has no deposits", async () => {
   const apy = await pool.getTotalSupplyAPY(user.address);
@@ -752,15 +752,12 @@ it("should allow borrowing just below the LTV limit", async () => {
   await pool.connect(user).deposit(tokenAddress, parseEther("100"));
   const prices = [parseEther("1")];
 
-  // Use view function to simulate max safe borrow
   const healthBefore = await pool.previewHealthFactorAfterBorrow(
     user.address,
     tokenAddress,
     parseEther("74.99"),
     prices
   );
-
-  // Try a safer number like 74.8 instead
   const borrowAmount = parseEther("74.8");
   await pool.connect(user).borrow(tokenAddress, borrowAmount, prices);
 
@@ -922,26 +919,21 @@ describe("LendingPool integration test", function () {
   it("should allow a full flow: deposit → borrow → repay → withdraw", async () => {
     const tokenAddress = await token.getAddress();
 
-    // Step 1: User deposits collateral
     await pool.connect(user).deposit(tokenAddress, parseEther("100"));
 
-    // Step 2: Check deposited balance
     let userBalance = await pool.balanceOf(tokenAddress, user.address);
     expect(userBalance).to.equal(parseEther("100"));
 
-    // Step 3: User borrows using the collateral
     const prices = [parseEther("1")];
     const borrowAmount = parseEther("50");
     await pool.connect(user).borrow(tokenAddress, borrowAmount, prices);
 
-    // Step 4: User repays the borrowed amount
     await token.connect(user).approve(await pool.getAddress(), borrowAmount);
     await pool.connect(user).repay(tokenAddress, borrowAmount);
 
     const debtAfterRepay = await pool.repayBalanceOf(tokenAddress, user.address);
     expect(debtAfterRepay).to.be.lte(parseEther("0.000001"));
 
-    // Step 5: User withdraws their full balance
     await pool.connect(user).withdraw(tokenAddress, parseEther("100"));
     const finalBalance = await pool.balanceOf(tokenAddress, user.address);
     expect(finalBalance).to.equal(0);

@@ -275,10 +275,9 @@ it("should allow liquidation when repay and collateral tokens are different", as
   await token2.connect(owner).mint(liquidator.address, parseUnits("10", 18));
   await token2.connect(liquidator).approve(liquidation.target, parseUnits("10", 18));
 
-  // ✅ Prices must cover both token and token2
   tokenPricesUSD = [
-    parseUnits("0.5", 18), // token (collateral) price
-    parseUnits("1", 18)    // token2 (repay) price
+    parseUnits("0.5", 18), 
+    parseUnits("1", 18)    
   ];
 
   const tx = await liquidation.connect(liquidator).liquidate(
@@ -326,7 +325,7 @@ it("should allow liquidation when penalty is below 20%", async function () {
     parseUnits("1000000", 18),
     7500,
     8000,
-    1000 // 10% penalty
+    1000 
   );
 
   tokenPricesUSD = [parseUnits("0.5", 18)];
@@ -346,7 +345,6 @@ it("should allow liquidation when penalty is below 20%", async function () {
     .withArgs(user.address, liquidator.address, token.target, repayAmount, expectedSeized);
 });
 it("should revert if liquidator has no approval for repay token", async function () {
-  // Remove allowance
   await token.connect(liquidator).approve(liquidation.target, 0);
 
   tokenPricesUSD = [parseUnits("0.5", 18)];
@@ -361,12 +359,6 @@ it("should revert if liquidator has no approval for repay token", async function
     )
   ).to.be.reverted;
 });
-
-
-
-
-
-
 
 });
 

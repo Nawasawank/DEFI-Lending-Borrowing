@@ -169,7 +169,6 @@ it("should fallback if price <= 0", async () => {
 it("should fallback if price is too high", async () => {
   const symbol = "DAI";
 
-  // make sure lastKnownPrices is set
   await priceOracle.getSafePrice(symbol);
 
   const tooHighPrice = ethers.toBigInt(1_000_000 * 1e8 + 1);

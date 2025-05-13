@@ -1731,68 +1731,62 @@ async getNetOverview(req, res) {
       return res.status(400).json({ error: 'Invalid user address' });
     }
 
-    // correctly pull out the two arrays from getUserCollateral(...)
-    const collRes = await LendingPoolContract.methods
-      .getUserCollateral(userAddress)
-      .call();
-    const colTokens   = collRes.tokens   || collRes[0];
+    // Collateral
+    const collRes = await LendingPoolContract.methods.getUserCollateral(userAddress).call();
+    const colTokens = collRes.tokens || collRes[0];
     const colBalances = collRes.balances || collRes[1];
 
-    // correctly pull out the two arrays from getUserBorrow(...)
-    const borrowRes      = await LendingPoolContract.methods
-      .getUserBorrow(userAddress)
-      .call();
-    const bTokens        = borrowRes.tokens   || borrowRes[0];
-    const rawPrincipals  = borrowRes.amounts  || borrowRes[1];
+    // Borrow
+    const borrowRes = await LendingPoolContract.methods.getUserBorrow(userAddress).call();
+    const bTokens = borrowRes.tokens || borrowRes[0];
+    const rawPrincipals = borrowRes.amounts || borrowRes[1];
 
-    // build price lookup set, collateral list, debt list, and rate info
-    const cgIDs   = new Set();
-    const coll    = [];
-    const debts   = [];
+    const cgIDs = new Set();
+    const coll = [];
+    const debts = [];
     const rateInfo = [];
 
-    // collateral loop
-    for (let i = 0; i < colTokens.length; i++) {
-      if (colBalances[i] === '0') continue;
-      const token   = colTokens[i];
-      const tokenC  = getTokenContract(token);
-      const [ sym, dec ] = await Promise.all([
+    // --- Collateral Loop ---
+    await Promise.all(colTokens.map(async (token, i) => {
+      if (colBalances[i] === '0') return;
+      const tokenC = getTokenContract(token);
+      const [sym, dec] = await Promise.all([
         tokenC.methods.symbol().call(),
         tokenC.methods.decimals().call()
       ]);
-      const bal    = parseFloat(ethers.formatUnits(colBalances[i], Number(dec)));
-      const cgID   = coingeckoMap[sym];
-      if (!cgID) continue;
+      const bal = parseFloat(ethers.formatUnits(colBalances[i], Number(dec)));
+      const cgID = coingeckoMap[sym];
+      if (!cgID) return console.warn(`Missing CoinGecko ID for ${sym}`);
       cgIDs.add(cgID);
       coll.push({ cgID, balance: bal });
-    }
+    }));
 
-    // borrow loop
-    for (let i = 0; i < bTokens.length; i++) {
-      if (rawPrincipals[i] === '0') continue;
-      const token = bTokens[i];
-      const raw   = await LendingPoolContract.methods
-        .repayBalanceOf(token, userAddress)
-        .call();
-      if (raw === '0') continue;
-      const tokenC  = getTokenContract(token);
-      const [ sym, dec ] = await Promise.all([
+    // --- Borrow Loop ---
+    await Promise.all(bTokens.map(async (token, i) => {
+      if (rawPrincipals[i] === '0') return;
+      const raw = await LendingPoolContract.methods.repayBalanceOf(token, userAddress).call();
+      if (raw === '0') return;
+
+      const tokenC = getTokenContract(token);
+      const [sym, dec] = await Promise.all([
         tokenC.methods.symbol().call(),
         tokenC.methods.decimals().call()
       ]);
-      const bal    = parseFloat(ethers.formatUnits(raw, Number(dec)));
-      const cgID   = coingeckoMap[sym];
+      const bal = parseFloat(ethers.formatUnits(raw, Number(dec)));
+      const cgID = coingeckoMap[sym];
       if (cgID) {
         cgIDs.add(cgID);
         debts.push({ cgID, balance: bal });
+      } else {
+        console.warn(`Missing CoinGecko ID for ${sym}`);
       }
-      const util = await LendingPoolContract.methods.getUtilization(token).call();
-      const brBP = await InterestModel.methods
-        .getBorrowRate(token, util)
-        .call();
-      rateInfo.push({ borrowRateBP: brBP, balance: bal });
-    }
 
+      const util = await LendingPoolContract.methods.getUtilization(token).call();
+      const brBP = await InterestModel.methods.getBorrowRate(token, util).call();
+      rateInfo.push({ borrowRateBP: brBP, balance: bal });
+    }));
+
+    // If no data available
     if (cgIDs.size === 0) {
       return res.status(200).json({
         user: userAddress,
@@ -1803,43 +1797,51 @@ async getNetOverview(req, res) {
 
     const prices = await fetchTokenPrices(Array.from(cgIDs));
 
+    // --- Calculate Collateral in USD ---
     let totalCollateralUSD = 0;
     for (const { cgID, balance } of coll) {
-      totalCollateralUSD += balance * prices[cgID].usd;
+      const price = prices[cgID]?.usd;
+      if (price !== undefined) {
+        totalCollateralUSD += balance * price;
+      } else {
+        console.warn(`Price missing for ${cgID} in collateral`);
+      }
     }
 
+    // --- Calculate Debt in USD ---
     let totalBorrowUSD = 0;
     for (const { cgID, balance } of debts) {
-      totalBorrowUSD += balance * prices[cgID].usd;
+      const price = prices[cgID]?.usd;
+      if (price !== undefined) {
+        totalBorrowUSD += balance * price;
+      } else {
+        console.warn(`Price missing for ${cgID} in debt`);
+      }
     }
 
-    const supplyAPRbp = await LendingPoolContract.methods
-      .getTotalSupplyAPY(userAddress)
-      .call();
+    // --- Interest Rates ---
+    const supplyAPRbp = await LendingPoolContract.methods.getTotalSupplyAPY(userAddress).call();
     const supplyAPR = Number(supplyAPRbp) / 10000;
 
     const totalDebtAmt = rateInfo.reduce((sum, r) => sum + r.balance, 0);
     let weightedBorrowAPR = 0;
     if (totalDebtAmt > 0) {
-      weightedBorrowAPR = rateInfo.reduce(
-        (sum, { borrowRateBP, balance }) =>
-          sum + (Number(borrowRateBP) / 10000) * balance,
-        0
-      ) / totalDebtAmt;
+      weightedBorrowAPR = rateInfo.reduce((sum, { borrowRateBP, balance }) =>
+        sum + (Number(borrowRateBP) / 10000) * balance, 0) / totalDebtAmt;
     }
 
-    const netAPY    = (supplyAPR - weightedBorrowAPR) * 100;
-    const netWorth  = totalCollateralUSD - totalBorrowUSD;
+    const netAPY = (supplyAPR - weightedBorrowAPR) * 100;
+    const netWorth = totalCollateralUSD - totalBorrowUSD;
 
     return res.status(200).json({
       user: userAddress,
       netWorthUSD: netWorth.toFixed(2),
-      netAPY:      netAPY.toFixed(2) + '%'
+      netAPY: netAPY.toFixed(2) + '%'
     });
 
   } catch (err) {
     return res.status(500).json({
-      error:   'Failed to fetch net overview',
+      error: 'Failed to fetch net overview',
       details: err.message
     });
   }
@@ -2182,46 +2184,54 @@ async getAllTotalSuppliedAndBorrow(req, res) {
 async PreviewHealthFactorBorrow(req, res) {
   try {
     const { userAddress, assetAddress, borrowAmount } = req.query;
-
+    
+    // Validate addresses early to avoid unnecessary processing
     if (!isAddress(userAddress) || !isAddress(assetAddress)) {
       return res.status(400).json({ error: 'Invalid address' });
     }
-
+    
     if (isNaN(borrowAmount) || Number(borrowAmount) <= 0) {
       return res.status(400).json({ error: 'Invalid borrow amount' });
     }
-
+    
     const borrowAmountInSmallestUnit = ethers.parseUnits(borrowAmount.toString(), 18);
-
-    const supportedTokens = await LendingPoolContract.methods.getSupportedTokens().call();
+    
+    const [supportedTokens, MAX_UINT256] = await Promise.all([
+      LendingPoolContract.methods.getSupportedTokens().call(),
+      Promise.resolve(BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"))
+    ]);
+    
     const tokenPricesUSD = await getTokenPricesForHealthFactor(supportedTokens);
-
-    const tokenPricesUSDInSmallestUnit = tokenPricesUSD.map(price => {
-      const priceStr = price.toLocaleString("fullwide", { useGrouping: false });
-      return ethers.parseUnits(priceStr, 18).toString();
-    });
-
+    
+    const tokenPricesUSDInSmallestUnit = tokenPricesUSD.map(price => 
+      ethers.parseUnits(
+        price.toLocaleString("fullwide", { useGrouping: false }), 
+        18
+      ).toString()
+    );
+    
+    // Get health factor
     const healthFactor = await LendingPoolContract.methods
-      .previewHealthFactorAfterBorrow(userAddress, assetAddress, borrowAmountInSmallestUnit, tokenPricesUSDInSmallestUnit)
+      .previewHealthFactorAfterBorrow(
+        userAddress, 
+        assetAddress, 
+        borrowAmountInSmallestUnit, 
+        tokenPricesUSDInSmallestUnit
+      )
       .call();
+      
+    // Format health factor
+    const formattedHealthFactor = BigInt(healthFactor) === MAX_UINT256 
+      ? "-" 
+      : ethers.formatUnits(healthFactor, 18);
     
-      const MAX_UINT256 = BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-
-      let formattedHealthFactor;
-      if (BigInt(healthFactor) === MAX_UINT256) {
-        formattedHealthFactor = "-";
-      } else {
-        formattedHealthFactor = ethers.formatUnits(healthFactor, 18);
-      }
-    
-
     return res.status(200).json({
       user: userAddress,
       asset: assetAddress,
       borrowAmount,
       healthFactor: formattedHealthFactor
     });
-
+    
   } catch (err) {
     return res.status(500).json({
       error: 'Failed to preview health factor after borrow',

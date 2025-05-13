@@ -40,8 +40,8 @@ describe("MockV3Aggregator", function () {
 
   it("should return correct data from latestRoundData()", async () => {
     const data = await aggregator.latestRoundData();
-    expect(data[1]).to.equal(INITIAL_PRICE); // answer
-    expect(data[3]).to.equal(await aggregator.latestTimestamp()); // updatedAt
+    expect(data[1]).to.equal(INITIAL_PRICE); 
+    expect(data[3]).to.equal(await aggregator.latestTimestamp());
   });
 
   it("should revert when trying to update with negative price", async () => {
