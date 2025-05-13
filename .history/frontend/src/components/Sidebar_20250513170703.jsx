@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import makeBlockie from "ethereum-blockies-base64";
 import "../styles/Sidebar.css";
 
@@ -14,11 +14,10 @@ import DAI from "../pictures/dai.png";
 import GHO from "../pictures/gho.svg";
 
 const Sidebar = () => {
-  const [account, setAccount] = useState(null);
-  const [blockieSrc, setBlockieSrc] = useState("");
+  const [account, setAccount] = useState(localStorage.getItem("account") || null);
+  const [blockieSrc, setBlockieSrc] = useState(localStorage.getItem("blockie") || "");
   const [showOverlay, setShowOverlay] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
-  const navigate = useNavigate();
 
   const connectWallet = async () => {
     if (window.ethereum) {
@@ -44,9 +43,19 @@ const Sidebar = () => {
   };
 
   useEffect(() => {
-    const initWallet = async () => {
-      if (window.ethereum) {
-        const accounts = await window.ethereum.request({ method: "eth_accounts" });
+    if (account && blockieSrc) return;
+
+    if (window.ethereum && window.ethereum.selectedAddress) {
+      const addr = window.ethereum.selectedAddress;
+      const blockie = makeBlockie(addr);
+      setAccount(addr);
+      setBlockieSrc(blockie);
+      localStorage.setItem("account", addr);
+      localStorage.setItem("blockie", blockie);
+    }
+
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", (accounts) => {
         if (accounts.length > 0) {
           const addr = accounts[0];
           const blockie = makeBlockie(addr);
@@ -54,30 +63,17 @@ const Sidebar = () => {
           setBlockieSrc(blockie);
           localStorage.setItem("account", addr);
           localStorage.setItem("blockie", blockie);
+          window.location.reload();
+        } else {
+          setAccount(null);
+          setBlockieSrc("");
+          localStorage.removeItem("account");
+          localStorage.removeItem("blockie");
+          console.log("Wallet disconnected");
         }
-
-        window.ethereum.on("accountsChanged", (accounts) => {
-          if (accounts.length > 0) {
-            const addr = accounts[0];
-            const blockie = makeBlockie(addr);
-            setAccount(addr);
-            setBlockieSrc(blockie);
-            localStorage.setItem("account", addr);
-            localStorage.setItem("blockie", blockie);
-            navigate(0); // refresh to apply new user
-          } else {
-            setAccount(null);
-            setBlockieSrc("");
-            localStorage.removeItem("account");
-            localStorage.removeItem("blockie");
-            console.log("Wallet disconnected");
-          }
-        });
-      }
-    };
-
-    initWallet();
-  }, [navigate]);
+      });
+    }
+  }, [account, blockieSrc]);
 
   const toggleOverlay = () => {
     if (showOverlay) setSelectedAsset(null);
@@ -174,10 +170,10 @@ const Sidebar = () => {
           <div className="overlay-content">
             <button className="close-button" onClick={toggleOverlay}>×</button>
             <h2 className="overlay-title">Please select your repay asset</h2>
-            {["WETH", "WBTC", "USDC", "DAI", "GHO"].map((asset) => (
+            {['WETH', 'WBTC', 'USDC', 'DAI', 'GHO'].map((asset) => (
               <div
                 key={asset}
-                className={`asset-button ${selectedAsset === asset ? "selected" : ""}`}
+                className={`asset-button ${selectedAsset === asset ? 'selected' : ''}`}
                 onClick={() => handleAssetSelection(asset)}
               >
                 <img src={{ WETH, WBTC, USDC, DAI, GHO }[asset]} alt={`${asset} Icon`} className="asset-icon" />

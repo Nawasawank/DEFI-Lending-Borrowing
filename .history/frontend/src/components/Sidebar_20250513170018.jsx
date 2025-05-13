@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import makeBlockie from "ethereum-blockies-base64";
 import "../styles/Sidebar.css";
 
@@ -18,22 +18,15 @@ const Sidebar = () => {
   const [blockieSrc, setBlockieSrc] = useState("");
   const [showOverlay, setShowOverlay] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
-  const navigate = useNavigate();
 
   const connectWallet = async () => {
     if (window.ethereum) {
       try {
         const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-        const userAddress = accounts[0];
-        const blockie = makeBlockie(userAddress);
+        setAccount(accounts[0]);
+        setBlockieSrc(makeBlockie(accounts[0]));
 
-        setAccount(userAddress);
-        setBlockieSrc(blockie);
-
-        localStorage.setItem("account", userAddress);
-        localStorage.setItem("blockie", blockie);
-
-        await fetch(`http://localhost:3001/api/claimToken?userAddress=${userAddress}`);
+        await fetch(`http://localhost:3001/api/claimToken?userAddress=${accounts[0]}`);
         window.location.reload();
       } catch (error) {
         console.error("Connection rejected:", error);
@@ -44,40 +37,26 @@ const Sidebar = () => {
   };
 
   useEffect(() => {
-    const initWallet = async () => {
-      if (window.ethereum) {
-        const accounts = await window.ethereum.request({ method: "eth_accounts" });
+    if (window.ethereum && window.ethereum.selectedAddress) {
+      const addr = window.ethereum.selectedAddress;
+      setAccount(addr);
+      setBlockieSrc(makeBlockie(addr));
+    }
+
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", (accounts) => {
         if (accounts.length > 0) {
           const addr = accounts[0];
-          const blockie = makeBlockie(addr);
           setAccount(addr);
-          setBlockieSrc(blockie);
-          localStorage.setItem("account", addr);
-          localStorage.setItem("blockie", blockie);
+          setBlockieSrc(makeBlockie(addr));
+        } else {
+          setAccount(null);
+          setBlockieSrc("");
+          console.log("Wallet disconnected");
         }
-
-        window.ethereum.on("accountsChanged", (accounts) => {
-          if (accounts.length > 0) {
-            const addr = accounts[0];
-            const blockie = makeBlockie(addr);
-            setAccount(addr);
-            setBlockieSrc(blockie);
-            localStorage.setItem("account", addr);
-            localStorage.setItem("blockie", blockie);
-            navigate(0); // refresh to apply new user
-          } else {
-            setAccount(null);
-            setBlockieSrc("");
-            localStorage.removeItem("account");
-            localStorage.removeItem("blockie");
-            console.log("Wallet disconnected");
-          }
-        });
-      }
-    };
-
-    initWallet();
-  }, [navigate]);
+      });
+    }
+  }, []);
 
   const toggleOverlay = () => {
     if (showOverlay) setSelectedAsset(null);
@@ -130,13 +109,13 @@ const Sidebar = () => {
   return (
     <div className="sidebar">
       <ul>
-        <Link to="/" style={{ textDecoration: "none" }}>
+        <Link to="/">
           <li>
             <img src={homeIcon} alt="Dashboard" className="w-6 h-6" />
             Dashboard
           </li>
         </Link>
-        <Link to="/market" style={{ textDecoration: "none" }}>
+        <Link to="/market">
           <li>
             <img src={marketIcon} alt="Market" className="w-6 h-6" />
             Market
@@ -155,7 +134,7 @@ const Sidebar = () => {
         <li className="metamask-box">
           {account ? (
             <div className="wallet-display">
-              <img className="wallet-icon" src={blockieSrc || walletIcon2} alt="wallet icon" style={{ marginRight: "10px" }} />
+              <img className="wallet-icon" src={walletIcon2} alt="wallet icon" style={{ marginRight: "10px" }} />
               <span className="wallet-address">
                 {account.slice(0, 6)}...{account.slice(-4)}
               </span>

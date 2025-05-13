@@ -14,8 +14,8 @@ import DAI from "../pictures/dai.png";
 import GHO from "../pictures/gho.svg";
 
 const Sidebar = () => {
-  const [account, setAccount] = useState(null);
-  const [blockieSrc, setBlockieSrc] = useState("");
+  const [account, setAccount] = useState(localStorage.getItem("account") || null);
+  const [blockieSrc, setBlockieSrc] = useState(localStorage.getItem("blockie") || "");
   const [showOverlay, setShowOverlay] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
   const navigate = useNavigate();
@@ -44,9 +44,19 @@ const Sidebar = () => {
   };
 
   useEffect(() => {
-    const initWallet = async () => {
-      if (window.ethereum) {
-        const accounts = await window.ethereum.request({ method: "eth_accounts" });
+    if (account && blockieSrc) return;
+
+    if (window.ethereum && window.ethereum.selectedAddress) {
+      const addr = window.ethereum.selectedAddress;
+      const blockie = makeBlockie(addr);
+      setAccount(addr);
+      setBlockieSrc(blockie);
+      localStorage.setItem("account", addr);
+      localStorage.setItem("blockie", blockie);
+    }
+
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", (accounts) => {
         if (accounts.length > 0) {
           const addr = accounts[0];
           const blockie = makeBlockie(addr);
@@ -54,30 +64,16 @@ const Sidebar = () => {
           setBlockieSrc(blockie);
           localStorage.setItem("account", addr);
           localStorage.setItem("blockie", blockie);
+          navigate(0); // full refresh to update all user-related data
+        } else {
+          setAccount(null);
+          setBlockieSrc("");
+          localStorage.removeItem("account");
+          localStorage.removeItem("blockie");
         }
-
-        window.ethereum.on("accountsChanged", (accounts) => {
-          if (accounts.length > 0) {
-            const addr = accounts[0];
-            const blockie = makeBlockie(addr);
-            setAccount(addr);
-            setBlockieSrc(blockie);
-            localStorage.setItem("account", addr);
-            localStorage.setItem("blockie", blockie);
-            navigate(0); // refresh to apply new user
-          } else {
-            setAccount(null);
-            setBlockieSrc("");
-            localStorage.removeItem("account");
-            localStorage.removeItem("blockie");
-            console.log("Wallet disconnected");
-          }
-        });
-      }
-    };
-
-    initWallet();
-  }, [navigate]);
+      });
+    }
+  }, [account, blockieSrc, navigate]);
 
   const toggleOverlay = () => {
     if (showOverlay) setSelectedAsset(null);
