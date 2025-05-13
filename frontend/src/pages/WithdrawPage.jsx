@@ -70,37 +70,37 @@ const WithdrawPage = ({ onClose, tokenName = 'USDC' }) => {
     fetchSupplies();
   }, [account, tokenName]);
 
-const handleWithdraw = async () => {
-  const assetAddress = tokenAddresses[tokenName];
-  const parsedAmount = parseFloat(amount);
+  const handleWithdraw = async () => {
+    const assetAddress = tokenAddresses[tokenName];
+    const parsedAmount = parseFloat(amount);
 
-  if (parsedAmount > 0 && parsedAmount <= maxWithdraw) {
-    try {
-      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/withdraw`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fromAddress: account,
-          assetAddress,
-          amount: parsedAmount.toFixed(18), // ✅ Use this here
-        }),
-      });
+    if (parsedAmount > 0 && parsedAmount <= maxWithdraw) {
+      try {
+        const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/withdraw`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fromAddress: account,
+            assetAddress,
+            amount: parsedAmount.toFixed(18),
+          }),
+        });
 
-      const result = await res.json();
-      if (result.message === "Withdrawal successful") {
-        setShowConfirm(true);
-        setHasError(false);
-      } else {
+        const result = await res.json();
+        if (result.message === "Withdrawal successful") {
+          setShowConfirm(true);
+          setHasError(false);
+        } else {
+          setHasError(true);
+        }
+      } catch (err) {
+        console.error("Withdrawal request failed:", err);
         setHasError(true);
       }
-    } catch (err) {
-      console.error("Withdrawal request failed:", err);
+    } else {
       setHasError(true);
     }
-  } else {
-    setHasError(true);
-  }
-};
+  };
 
 
   const handleCloseAll = () => {
