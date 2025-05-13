@@ -18,18 +18,13 @@ const tokenIcons = {
 
 const tokenMap = JSON.parse(process.env.REACT_APP_TOKEN_SYMBOL_MAP || '{}');
 
-const safeToFixed = (value, digits = 2, fallback = '-') => {
-  const num = parseFloat(value);
-  return isNaN(num) ? fallback : num.toFixed(digits);
-};
-
 const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
   const [amount, setAmount] = useState(debt.toString());
   const [showConfirm, setShowConfirm] = useState(false);
   const [healthStart, setHealthStart] = useState('-');
   const [healthEnd, setHealthEnd] = useState('-');
   const [remainingDebt, setRemainingDebt] = useState('-');
-  const [account, setAccount] = useState(localStorage.getItem("account") || null);
+  const [account, setAccount] = useState(null);
   const [walletBalance, setWalletBalance] = useState(0);
   const [hasError, setHasError] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -41,19 +36,17 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
   }, {});
 
   useEffect(() => {
-    if (window.ethereum) {
-      window.ethereum.on("accountsChanged", (accounts) => {
-        if (accounts.length > 0) {
-          const addr = accounts[0];
-          setAccount(addr);
-          localStorage.setItem("account", addr);
-          window.location.reload();
-        } else {
-          setAccount(null);
-          localStorage.removeItem("account");
+    const getAccount = async () => {
+      if (window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          setAccount(accounts[0]);
+        } catch (error) {
+          console.error('MetaMask error:', error);
         }
-      });
-    }
+      }
+    };
+    getAccount();
   }, []);
 
   useEffect(() => {
@@ -75,13 +68,13 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
         if (match) setWalletBalance(parseFloat(match.balance));
 
         const healthData = await healthRes.json();
-        setHealthStart(safeToFixed(healthData.healthFactor));
+        if (healthData.healthFactor) setHealthStart(parseFloat(healthData.healthFactor).toFixed(2));
 
         const previewHealthData = await previewHealthRes.json();
-        setHealthEnd(safeToFixed(previewHealthData.healthFactor));
+        if (previewHealthData.healthFactor) setHealthEnd(parseFloat(previewHealthData.healthFactor).toFixed(2));
 
         const previewDebtData = await previewDebtRes.json();
-        setRemainingDebt(safeToFixed(previewDebtData.remainingDebt, 6));
+        if (previewDebtData.remainingDebt) setRemainingDebt(parseFloat(previewDebtData.remainingDebt).toFixed(6));
       } catch (err) {
         console.error('Failed to fetch repay page data:', err);
       } finally {
