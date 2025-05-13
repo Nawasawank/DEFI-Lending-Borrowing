@@ -87,11 +87,11 @@ const Sidebar = () => {
   const handleAssetSelection = (asset) => setSelectedAsset(asset);
 
   const tokenAddressMap = {
-    WETH: "0xa44554B8Ab5f4fB56FF71fF8c687b4D2962E1A23",
-    WBTC: "0x6b68bBdD0aC6a46f20a2995C94eEF3686304396a",
-    USDC: "0x8D657ce9F729dcCDB87f51df99Cc9ba6e004bF44",
-    DAI: "0xB21C9aee8303c2923BFa169E771557832A651e2E",
-    GHO: "0x1D807ef9107575B24ad7970454121d2e0A5259f1",
+    WETH: process.env.REACT_APP_WETH_ADDRESS,
+    WBTC: process.env.REACT_APP_WBTC_ADDRESS,
+    USDC: process.env.REACT_APP_USDC_ADDRESS,
+    DAI: process.env.REACT_APP_DAI_ADDRESS,
+    GHO: process.env.REACT_APP_GHO_ADDRESS,
   };
 
   const confirmLiquidatorSetup = async () => {
