@@ -60,7 +60,7 @@ h2 .b {
   table-layout: fixed; /* Force equal column width */
   border-collapse: collapse;
   margin-top: 10px;
-  width: 465px;
+  width: 460px;
 }
 
 .by th {

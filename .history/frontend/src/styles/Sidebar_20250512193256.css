@@ -36,19 +36,13 @@
   padding: 10px;
   text-align: center;
   color: white;
+  text-decoration: none;
   width: 190px;
-  cursor: pointer;
 }
 
 .sidebar li:hover {
   background-color: #dddddf;
   border-radius: 15px;
-  color: #1e1e2f;
-}
-
-.sidebar a {
-  text-decoration: none; /* Remove underline */
-  color: inherit; /* Keep same text color */
 }
 
 .sidebar img {
@@ -68,24 +62,36 @@
   background-color: transparent;
 }
 
+.sidebar .user-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px;
+  background-color: #98a4e6;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
+  border-radius: 15px;
+  color: white;
+  margin-bottom: 10px;
+}
+
 /* MetaMask Connect Section */
 .metamask-box {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: flex-start; /* Align content to the left */
   margin-top: 15px;
   background-color: #98a4e6;
   border-radius: 12px;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.3);
   width: 190px;
   height: 40px;
-  padding: 10px;
+  padding: 10px; /* Add padding for spacing */
 }
 
 .metamask-connect-btn {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: flex-start; /* Align content to the left */
   background-color: transparent;
   color: white;
   border: none;
@@ -114,19 +120,30 @@
   color: white;
 }
 
+/* Block / Wallet Icon */
 .wallet-icon {
   width: 15px;
   height: 15px;
   border-radius: 50%;
   overflow: hidden;
-  margin-left: 2px;
+  margin-left: 2px; /* Move the icon 2px to the right */
   border: 2px solid white;
   box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
   align-items: center;
   justify-content: center;
 }
 
-/* Liquidator */
+/* Wallet display container */
+.wallet-display {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 8px;
+  background-color: transparent;
+  border-radius: 10px;
+}
+
+/* Liquidator Box */
 .sidebar .liquidator-box {
   display: flex;
   align-items: center;
@@ -147,6 +164,7 @@
   color: #1e1e2f;
 }
 
+/* Liquidator Button */
 .liquidator-btn {
   display: flex;
   align-items: center;
@@ -178,11 +196,12 @@
   height: 100%;
   background-color: rgba(0, 0, 0, 0.6);
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: center; /* Center vertically */
+  justify-content: center; /* Center horizontally */
   z-index: 1000;
 }
 
+/* Overlay Content */
 .overlay-content {
   position: relative;
   background-color: white;
@@ -196,14 +215,23 @@
   box-shadow: 0 18px 12px rgba(0.4, 0.3, 0.3, 0.4);
 }
 
-.overlay-title {
+.overlay-content h2 {
   font-family: "Ubuntu", sans-serif;
-  font-size: 22px;
-  font-weight: 700;
-  color: black;
-  margin-bottom: 24px;
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 20px;
 }
 
+/* Overlay Title */
+.overlay-title {
+  font-family: "Ubuntu", sans-serif;
+  font-size: 22px; /* Increased font size */
+  font-weight: 700; /* Bold font */
+  color: black;
+  margin-bottom: 24px; /* Increased spacing below the title */
+}
+
+/* Close Button */
 .close-button {
   position: absolute;
   top: 12px;
@@ -220,55 +248,98 @@
   transform: scale(1.2);
 }
 
+/* Asset Selection */
+.asset-selection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #a3a3a3; /* Lighter background color */
+  padding: 12px 16px; /* Adjusted padding */
+  border-radius: 12px; /* Rounded corners */
+  margin-bottom: 24px; /* Increased spacing below */
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+.asset-icon {
+  width: 36px; /* Adjusted size */
+  height: 36px; /* Adjusted size */
+  border-radius: 50%;
+}
+
+.asset-name {
+  font-family: "Ubuntu", sans-serif;
+  font-size: 18px;
+  font-weight: 700; /* Bold font */
+  color: black;
+}
+
+/* Confirm Button */
+.confirm-btn {
+  background-color: black;
+  color: white;
+  font-family: "Ubuntu", sans-serif;
+  font-size: 18px;
+  font-weight: 700; /* Bold font */
+  width: 100%;
+  padding: 14px; /* Adjusted padding */
+  border: none;
+  border-radius: 12px; /* Rounded corners */
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.confirm-btn:hover {
+  background-color: #333; /* Darker hover effect */
+}
+
+.close-overlay-btn {
+  background-color: #98a4e6;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.close-overlay-btn:hover {
+  background-color: #dddddf;
+  color: #1e1e2f;
+}
+
+/* Asset Button */
 .asset-button {
   display: flex;
   align-items: center;
-  background-color: rgb(208, 208, 208);
+  background-color: rgb(208, 208, 208); /* Light gray background */
   padding: 12px 16px;
   border-radius: 12px;
-  margin-bottom: 16px;
+  margin-bottom: 16px; /* Spacing between buttons */
   cursor: pointer;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow */
   transition: background-color 0.3s ease;
 }
 
 .asset-button:hover {
-  background-color: #eaeaea;
+  background-color: #eaeaea; /* Slightly darker gray on hover */
 }
 
 .asset-icon {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  margin-right: 12px;
+  margin-right: 12px; /* Space between icon and text */
 }
 
 .asset-name {
   font-family: "Ubuntu", sans-serif;
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 700; /* Bold font */
   color: black;
 }
 
+/* Selected Asset Button */
 .asset-button.selected {
-  background-color: #98a4e6;
-  color: white;
-}
-
-.confirm-btn {
-  background-color: black;
-  color: white;
-  font-family: "Ubuntu", sans-serif;
-  font-size: 18px;
-  font-weight: 700;
-  width: 100%;
-  padding: 14px;
-  border: none;
-  border-radius: 12px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-.confirm-btn:hover {
-  background-color: #333;
+  background-color: #98a4e6; /* Purple background for selected button */
+  color: white; /* Change text color to white for better contrast */
 }

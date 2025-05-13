@@ -18,11 +18,6 @@ const tokenIcons = {
 
 const tokenMap = JSON.parse(process.env.REACT_APP_TOKEN_SYMBOL_MAP || '{}');
 
-const safeToFixed = (value, digits = 2, fallback = '-') => {
-  const num = parseFloat(value);
-  return isNaN(num) ? fallback : num.toFixed(digits);
-};
-
 const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
   const [amount, setAmount] = useState(debt.toString());
   const [showConfirm, setShowConfirm] = useState(false);
@@ -75,13 +70,13 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
         if (match) setWalletBalance(parseFloat(match.balance));
 
         const healthData = await healthRes.json();
-        setHealthStart(safeToFixed(healthData.healthFactor));
+        setHealthStart(parseFloat(healthData.healthFactor || 0).toFixed(2));
 
         const previewHealthData = await previewHealthRes.json();
-        setHealthEnd(safeToFixed(previewHealthData.healthFactor));
+        setHealthEnd(parseFloat(previewHealthData.healthFactor || 0).toFixed(2));
 
         const previewDebtData = await previewDebtRes.json();
-        setRemainingDebt(safeToFixed(previewDebtData.remainingDebt, 6));
+        setRemainingDebt(parseFloat(previewDebtData.remainingDebt || 0).toFixed(6));
       } catch (err) {
         console.error('Failed to fetch repay page data:', err);
       } finally {

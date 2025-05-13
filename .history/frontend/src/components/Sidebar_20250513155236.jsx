@@ -14,8 +14,8 @@ import DAI from "../pictures/dai.png";
 import GHO from "../pictures/gho.svg";
 
 const Sidebar = () => {
-  const [account, setAccount] = useState(localStorage.getItem("account") || null);
-  const [blockieSrc, setBlockieSrc] = useState(localStorage.getItem("blockie") || "");
+  const [account, setAccount] = useState(null);
+  const [blockieSrc, setBlockieSrc] = useState("");
   const [showOverlay, setShowOverlay] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState(null);
 
@@ -25,66 +25,35 @@ const Sidebar = () => {
         const accounts = await window.ethereum.request({
           method: "eth_requestAccounts",
         });
-        const userAddress = accounts[0];
-        const blockie = makeBlockie(userAddress);
+        setAccount(accounts[0]);
+        setBlockieSrc(makeBlockie(accounts[0]));
 
-        setAccount(userAddress);
-        setBlockieSrc(blockie);
-
-        localStorage.setItem("account", userAddress);
-        localStorage.setItem("blockie", blockie);
-
-        await fetch(`http://localhost:3001/api/claimToken?userAddress=${userAddress}`);
+        await fetch(`http://localhost:3001/api/claimToken?userAddress=${accounts[0]}`);
         window.location.reload();
       } catch (error) {
         console.error("Connection rejected:", error);
       }
     } else {
-      alert(
-        "MetaMask not detected. Please install it from https://metamask.io/"
-      );
-    }
-  };
-
-  const fetchClaimToken = async (account) => {
-    try {
-      const response = await fetch(
-        `http://localhost:3001/api/claimToken?userAddress=${account}`
-      );
-      const data = await response.json();
-
-      if (response.ok) {
-        const claimed = data.claimed?.length || 0;
-        const skipped = data.skipped?.length || 0;
-
-        alert(`✅ Claimed: ${claimed}, ⏭ Skipped: ${skipped}`);
-        console.log("Claim Token Result:", data);
-      } else {
-        alert(`❌ Claim failed: ${data.error || "Unknown error"}`);
-        console.error("Claim Token Error:", data);
-      }
-    } catch (error) {
-      console.error("Fetch claim failed:", error);
-      alert("❌ Failed to claim tokens. Please try again.");
+      alert("MetaMask not detected. Please install it from https://metamask.io/");
     }
   };
 
   useEffect(() => {
+    if (window.ethereum && window.ethereum.selectedAddress) {
+      const addr = window.ethereum.selectedAddress;
+      setAccount(addr);
+      setBlockieSrc(makeBlockie(addr));
+    }
+
     if (window.ethereum) {
       window.ethereum.on("accountsChanged", (accounts) => {
         if (accounts.length > 0) {
           const addr = accounts[0];
-          const blockie = makeBlockie(addr);
           setAccount(addr);
-          setBlockieSrc(blockie);
-          localStorage.setItem("account", addr);
-          localStorage.setItem("blockie", blockie);
-          window.location.reload();
+          setBlockieSrc(makeBlockie(addr));
         } else {
           setAccount(null);
           setBlockieSrc("");
-          localStorage.removeItem("account");
-          localStorage.removeItem("blockie");
           console.log("Wallet disconnected");
         }
       });
@@ -99,11 +68,11 @@ const Sidebar = () => {
   const handleAssetSelection = (asset) => setSelectedAsset(asset);
 
   const tokenAddressMap = {
-    WETH: process.env.REACT_APP_WETH_ADDRESS,
-    WBTC: process.env.REACT_APP_WBTC_ADDRESS,
-    USDC: process.env.REACT_APP_USDC_ADDRESS,
-    DAI: process.env.REACT_APP_DAI_ADDRESS,
-    GHO: process.env.REACT_APP_GHO_ADDRESS,
+    WETH: "0xa44554B8Ab5f4fB56FF71fF8c687b4D2962E1A23",
+    WBTC: "0x6b68bBdD0aC6a46f20a2995C94eEF3686304396a",
+    USDC: "0x8D657ce9F729dcCDB87f51df99Cc9ba6e004bF44",
+    DAI: "0xB21C9aee8303c2923BFa169E771557832A651e2E",
+    GHO: "0x1D807ef9107575B24ad7970454121d2e0A5259f1",
   };
 
   const confirmLiquidatorSetup = async () => {
@@ -119,14 +88,11 @@ const Sidebar = () => {
     };
 
     try {
-      const response = await fetch(
-        "http://localhost:3001/api/setup-liquidator",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }
-      );
+      const response = await fetch("http://localhost:3001/api/setup-liquidator", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
       const result = await response.json();
 
@@ -162,11 +128,7 @@ const Sidebar = () => {
 
         <li className="liquidator-box">
           <button onClick={toggleOverlay} className="liquidator-btn">
-            <img
-              src={liquidatorIcon}
-              alt="Liquidator"
-              style={{ width: "24px", height: "24px", marginRight: "10px" }}
-            />
+            <img src={liquidatorIcon} alt="Liquidator" style={{ width: "24px", height: "24px", marginRight: "10px" }} />
             Become a liquidator
           </button>
         </li>
@@ -174,23 +136,14 @@ const Sidebar = () => {
         <li className="metamask-box">
           {account ? (
             <div className="wallet-display">
-              <img
-                className="wallet-icon"
-                src={walletIcon2}
-                alt="wallet icon"
-                style={{ marginRight: "10px" }}
-              />
+              <img className="wallet-icon" src={walletIcon2} alt="wallet icon" style={{ marginRight: "10px" }} />
               <span className="wallet-address">
                 {account.slice(0, 6)}...{account.slice(-4)}
               </span>
             </div>
           ) : (
             <button onClick={connectWallet} className="metamask-connect-btn">
-              <img
-                src={walletIcon2}
-                alt="Wallet Icon"
-                style={{ width: "20px", height: "20px", marginRight: "10px" }}
-              />
+              <img src={walletIcon2} alt="Wallet Icon" style={{ width: "20px", height: "20px", marginRight: "10px" }} />
               Connect Wallet
             </button>
           )}
@@ -200,29 +153,19 @@ const Sidebar = () => {
       {showOverlay && (
         <div className="overlay">
           <div className="overlay-content">
-            <button className="close-button" onClick={toggleOverlay}>
-              ×
-            </button>
+            <button className="close-button" onClick={toggleOverlay}>×</button>
             <h2 className="overlay-title">Please select your repay asset</h2>
             {["WETH", "WBTC", "USDC", "DAI", "GHO"].map((asset) => (
               <div
                 key={asset}
-                className={`asset-button ${
-                  selectedAsset === asset ? "selected" : ""
-                }`}
+                className={`asset-button ${selectedAsset === asset ? "selected" : ""}`}
                 onClick={() => handleAssetSelection(asset)}
               >
-                <img
-                  src={{ WETH, WBTC, USDC, DAI, GHO }[asset]}
-                  alt={`${asset} Icon`}
-                  className="asset-icon"
-                />
+                <img src={{ WETH, WBTC, USDC, DAI, GHO }[asset]} alt={`${asset} Icon`} className="asset-icon" />
                 <span className="asset-name">{asset}</span>
               </div>
             ))}
-            <button className="confirm-btn" onClick={confirmLiquidatorSetup}>
-              Confirm
-            </button>
+            <button className="confirm-btn" onClick={confirmLiquidatorSetup}>Confirm</button>
           </div>
         </div>
       )}
