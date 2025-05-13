@@ -107,7 +107,7 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
         body: JSON.stringify({
           fromAddress: account,
           assetAddress,
-          amount: parsedAmount,
+          amount: parsedAmount.toFixed(18),
         }),
       });
 
