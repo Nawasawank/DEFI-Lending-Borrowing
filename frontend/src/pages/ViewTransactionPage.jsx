@@ -16,18 +16,19 @@ const tokenIcons = {
   GHO: ghoIcon,
 };
 
-const tokenMap = JSON.parse(process.env.REACT_APP_TOKEN_SYMBOL_MAP || "{}");
+const rawTokenMap = JSON.parse(process.env.REACT_APP_TOKEN_SYMBOL_MAP || "{}");
+const tokenMap = Object.fromEntries(
+  Object.entries(rawTokenMap).map(([addr, symbol]) => [addr.toLowerCase(), symbol])
+);
 
 const ViewTransaction = () => {
   const [history, setHistory] = useState([]);
-  const [filtered, setFiltered] = useState([]);
-  const [filters, setFilters] = useState({
-    type: "",
-    token: "",
-    amount: "",
-    date: "",
-  });
+  const [filters, setFilters] = useState({ type: "", date: "" });
   const [account, setAccount] = useState(null);
+
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     const getAccount = async () => {
@@ -44,48 +45,51 @@ const ViewTransaction = () => {
   }, []);
 
   useEffect(() => {
-    const fetchHistory = async () => {
-      if (!account) return;
-      try {
-        const response = await fetch(`http://localhost:3001/api/history?userAddress=${account}`);
-        const result = await response.json();
-        const historyData = result.history || [];
-        setHistory(historyData);
-        setFiltered(historyData);
-      } catch (error) {
-        console.error("Error fetching history:", error);
-      }
-    };
-    fetchHistory();
-  }, [account]);
+    if (account) fetchHistory();
+  }, [account, filters.type, filters.date, page]);
 
-  const formatDate = (timestamp) => {
-    const date = new Date(timestamp * 1000);
-    return date.toLocaleDateString();
+  const fetchHistory = async () => {
+    const queryParams = new URLSearchParams();
+    queryParams.append("userAddress", account);
+    queryParams.append("page", page);
+    queryParams.append("limit", limit);
+    if (filters.type) queryParams.append("type", filters.type);
+
+    try {
+      const response = await fetch(`http://localhost:3001/api/history?${queryParams.toString()}`);
+      const result = await response.json();
+
+      let data = result.history || [];
+
+      // frontend date filtering (if used)
+      if (filters.date) {
+        const selectedDay = new Date(filters.date);
+        selectedDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(selectedDay);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        data = data.filter((tx) => {
+          const txDate = new Date(tx.timestamp * 1000);
+          return txDate >= selectedDay && txDate <= endOfDay;
+        });
+      }
+
+      setHistory(data);
+      const total = result.total || 0;
+      setTotalPages(Math.ceil(total / limit) || 1);
+    } catch (err) {
+      console.error("Error fetching paginated history:", err);
+    }
   };
 
   const handleFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value });
+    setPage(1); // reset page when filter changes
   };
 
-  const applyFilters = () => {
-    let result = [...history];
-    const { type, token, amount, date } = filters;
-
-    if (type) result = result.filter((tx) => tx.type === type);
-    if (token)
-      result = result.filter((tx) => {
-        const symbol = tokenMap[tx.token?.toLowerCase()];
-        return symbol?.toLowerCase() === token.toLowerCase();
-      });
-    if (amount)
-      result = result.filter((tx) => Number(tx.amount) >= Number(amount));
-    if (date) {
-      const timestamp = new Date(date).getTime() / 1000;
-      result = result.filter((tx) => tx.timestamp >= timestamp);
-    }
-
-    setFiltered(result);
+  const formatDate = (timestamp) => {
+    const date = new Date(timestamp * 1000);
+    return date.toLocaleDateString();
   };
 
   return (
@@ -95,7 +99,7 @@ const ViewTransaction = () => {
 
         <div className="transaction-content">
           <div className="transaction-filters">
-            <div className="filters-row">
+            <div className="filters-row" style={{ display: "flex", gap: "10px", alignItems: "center" }}>
               <select
                 name="type"
                 value={filters.type}
@@ -109,29 +113,6 @@ const ViewTransaction = () => {
                 <option value="Repay">Repay</option>
               </select>
 
-              <select
-                name="token"
-                value={filters.token}
-                onChange={handleFilterChange}
-                className="filter-select"
-              >
-                <option value="">All Tokens</option>
-                {Object.values(tokenMap).map((symbol) => (
-                  <option key={symbol} value={symbol}>
-                    {symbol}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                type="number"
-                name="amount"
-                placeholder="Amount"
-                value={filters.amount}
-                onChange={handleFilterChange}
-                className="filter-input"
-              />
-
               <input
                 type="date"
                 name="date"
@@ -139,10 +120,6 @@ const ViewTransaction = () => {
                 onChange={handleFilterChange}
                 className="filter-input"
               />
-
-              <button onClick={applyFilters} className="filter-button">
-                Apply
-              </button>
             </div>
           </div>
 
@@ -156,9 +133,9 @@ const ViewTransaction = () => {
               </tr>
             </thead>
             <tbody className="tx-table-body">
-              {filtered.map((tx, index) => {
+              {history.map((tx, index) => {
                 const lowerAddress = tx.token?.toLowerCase();
-                const symbol = tokenMap[lowerAddress] || lowerAddress?.slice(0, 6) + "...";
+                const symbol = tokenMap[lowerAddress] ?? lowerAddress?.slice(0, 6) + "...";
                 const icon = tokenIcons[symbol];
 
                 return (
@@ -187,6 +164,25 @@ const ViewTransaction = () => {
               })}
             </tbody>
           </table>
+
+          {/* Pagination Controls */}
+          <div style={{ display: "flex", justifyContent: "center", marginTop: "16px", gap: "12px" }}>
+            <button
+              onClick={() => setPage((prev) => Math.max(prev - 1, 1))}
+              disabled={page === 1}
+              className="filter-button"
+            >
+              Previous
+            </button>
+            <span>Page {page} of {totalPages}</span>
+            <button
+              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={page === totalPages}
+              className="filter-button"
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
     </div>

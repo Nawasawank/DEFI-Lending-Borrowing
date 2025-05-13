@@ -29,11 +29,13 @@
 
 .filters-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px;
 }
+
 
 .filter-select,
 .filter-input {
