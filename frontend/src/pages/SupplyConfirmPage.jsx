@@ -16,7 +16,7 @@ const SupplyConfirmPage = ({ onClose, tokenName, amount }) => {
           <img src={Check} alt="Check" className="checkmark-icon" />
         </div>
 
-        <h2 className="confirm-title">All done !</h2>
+        <h2 className="confirm-title">Supply Complete!</h2>
 
         {/* The `amount` here is expected to be fetched from backend before this page is shown */}
         <p className="confirm-description">

@@ -196,7 +196,7 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
                 className={`repay-button ${hasError ? 'error shake' : ''}`}
                 onClick={handleRepayClick}
               >
-                {hasError ? 'Repay Error' : `Approve ${tokenName} to continue`}
+                {hasError ? 'Repay Failed' : `Approve ${tokenName} to continue`}
               </button>
             </div>
           </>

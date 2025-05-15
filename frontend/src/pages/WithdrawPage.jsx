@@ -165,7 +165,7 @@ const WithdrawPage = ({ onClose, tokenName = 'USDC' }) => {
                 className={`withdraw-button ${hasError ? 'error shake' : ''}`}
                 onClick={handleWithdraw}
               >
-                {hasError ? 'Withdraw Error' : `Withdraw ${tokenName}`}
+                {hasError ? 'Withdraw Failed' : `Withdraw ${tokenName}`}
               </button>
             </div>
           </>

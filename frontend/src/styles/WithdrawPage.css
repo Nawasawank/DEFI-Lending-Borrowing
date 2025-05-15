@@ -124,7 +124,7 @@
 }
  /* Add this to WithdrawPage.css */
 .withdraw-button.error {
-  background-color: crimson !important;
+  background-color: #dc2626  !important;
   color: white !important;
 }
 

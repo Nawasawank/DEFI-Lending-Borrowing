@@ -12,7 +12,7 @@ const RepayConfirmPage = ({ onClose, tokenName, amount }) => {
           <img src={CheckIcon} alt="Check" className="checkmark-icon" />
         </div>
 
-        <h2 className="confirm-title">All done!</h2>
+        <h2 className="confirm-title">Repay Complete!</h2>
         <p className="confirm-description">
           You repaid {formattedAmount} {tokenName}
         </p>
