@@ -21,29 +21,28 @@ const Sidebar = () => {
   const navigate = useNavigate();
 
   const connectWallet = async () => {
-    if (!window.ethereum) {
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        const userAddress = accounts[0];
+        const blockie = makeBlockie(userAddress);
+
+        setAccount(userAddress);
+        setBlockieSrc(blockie);
+
+        localStorage.setItem("account", userAddress);
+        localStorage.setItem("blockie", blockie);
+
+        // 🔁 Call claimToken after wallet connect
+        await fetch(`http://localhost:3001/api/claimToken?userAddress=${userAddress}`);
+
+        // 🔄 Reload to update state/UI (optional)
+        window.location.reload();
+      } catch (error) {
+        console.error("Connection rejected:", error);
+      }
+    } else {
       alert("MetaMask not detected. Please install it from https://metamask.io/");
-      return;
-    }
-
-    try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-      const userAddress = accounts[0];
-      const blockie = makeBlockie(userAddress);
-
-      setAccount(userAddress);
-      setBlockieSrc(blockie);
-
-      localStorage.setItem("account", userAddress);
-      localStorage.setItem("blockie", blockie);
-
-      // Claim all tokens
-      await fetch(`http://localhost:3001/api/claimToken?userAddress=${userAddress}`);
-
-      // Reload to trigger state refresh (or replace with manual refetch)
-      window.location.reload();
-    } catch (error) {
-      console.error("Connection rejected:", error);
     }
   };
 
@@ -69,7 +68,7 @@ const Sidebar = () => {
           setBlockieSrc(blockie);
           localStorage.setItem("account", addr);
           localStorage.setItem("blockie", blockie);
-          navigate(0); // reload current route
+          navigate(0);
         } else {
           setAccount(null);
           setBlockieSrc("");

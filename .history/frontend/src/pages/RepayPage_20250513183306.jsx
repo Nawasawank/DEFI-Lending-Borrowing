@@ -24,11 +24,11 @@ const safeToFixed = (value, digits = 2, fallback = '-') => {
 };
 
 const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
-  const [amount, setAmount] = useState(() => debt?.toString() || '');
+  const [amount, setAmount] = useState('');
   const [showConfirm, setShowConfirm] = useState(false);
   const [healthStart, setHealthStart] = useState('-');
   const [healthEnd, setHealthEnd] = useState('-');
-  const [remainingDebt, setRemainingDebt] = useState('-');
+  const [remainingDebt, setRemainingDebt] = useState('');
   const [account, setAccount] = useState(localStorage.getItem("account") || null);
   const [walletBalance, setWalletBalance] = useState(0);
   const [hasError, setHasError] = useState(false);
@@ -57,17 +57,15 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
   }, []);
 
   useEffect(() => {
-    const fetchAll = async () => {
-      const parsedAmount = parseFloat(amount);
-      if (!account || !tokenName || isNaN(parsedAmount)) return;
+    const fetchInitial = async () => {
+      if (!account || !tokenName) return;
       setLoading(true);
       const assetAddress = tokenAddresses[tokenName];
       try {
-        const [balanceRes, healthRes, previewHealthRes, previewDebtRes] = await Promise.all([
+        const [balanceRes, healthRes, previewDebtRes] = await Promise.all([
           fetch(`http://localhost:3001/api/wallet-balance?userAddress=${account}`),
           fetch(`http://localhost:3001/api/health-factor?userAddress=${account}`),
-          fetch(`http://localhost:3001/api/previewhealthfactorrepay?userAddress=${account}&assetAddress=${assetAddress}&repayAmount=${parsedAmount}`),
-          fetch(`http://localhost:3001/api/previewRemaingDebt?userAddress=${account}&assetAddress=${assetAddress}&repayAmount=${parsedAmount}`)
+          fetch(`http://localhost:3001/api/previewRemaingDebt?userAddress=${account}&assetAddress=${assetAddress}&repayAmount=0`)
         ]);
 
         const balanceData = await balanceRes.json();
@@ -77,23 +75,46 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
         const healthData = await healthRes.json();
         setHealthStart(safeToFixed(healthData.healthFactor));
 
-        const previewHealthData = await previewHealthRes.json();
-        setHealthEnd(safeToFixed(previewHealthData.healthFactor));
-
         const previewDebtData = await previewDebtRes.json();
-        setRemainingDebt(safeToFixed(previewDebtData.remainingDebt, 6));
+        setRemainingDebt(previewDebtData.remainingDebt);
+        setAmount(previewDebtData.remainingDebt?.toString() || '');
       } catch (err) {
-        console.error('Failed to fetch repay page data:', err);
+        console.error('Initial fetch failed:', err);
       } finally {
         setLoading(false);
       }
     };
-    fetchAll();
-  }, [account, tokenName, amount]);
+    fetchInitial();
+  }, [account, tokenName]);
+
+  useEffect(() => {
+    const fetchHealth = async () => {
+      const parsedAmount = parseFloat(amount);
+      if (!account || !tokenName || isNaN(parsedAmount)) return;
+      const assetAddress = tokenAddresses[tokenName];
+      try {
+        const previewHealthRes = await fetch(
+          `http://localhost:3001/api/previewhealthfactorrepay?userAddress=${account}&assetAddress=${assetAddress}&repayAmount=${parsedAmount}`
+        );
+        const previewHealthData = await previewHealthRes.json();
+        setHealthEnd(safeToFixed(previewHealthData.healthFactor));
+      } catch (err) {
+        console.error('Preview health fetch failed:', err);
+      }
+    };
+    fetchHealth();
+  }, [amount, account, tokenName]);
 
   const handleRepayClick = async () => {
     const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0 || parsedAmount > debt || parsedAmount > walletBalance) {
+    const parsedRemaining = parseFloat(remainingDebt);
+    if (
+      isNaN(parsedAmount) ||
+      parsedAmount <= 0 ||
+      parsedRemaining === undefined ||
+      parsedAmount > parsedRemaining ||
+      parsedAmount > walletBalance
+    ) {
       setHasError(true);
       setTimeout(() => setHasError(false), 1200);
       return;
@@ -107,7 +128,7 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
         body: JSON.stringify({
           fromAddress: account,
           assetAddress,
-          amount: parsedAmount.toFixed(18),
+          amount: parsedAmount,
         }),
       });
 
@@ -145,6 +166,7 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
               <div className="input-box" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={amount}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -181,7 +203,7 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
                 <>
                   <div className="row">
                     <span>Remaining debt</span>
-                    <span>{debt} {tokenName} → {remainingDebt} {tokenName}</span>
+                    <span>{remainingDebt} {tokenName}</span>
                   </div>
                   <div className="row">
                     <span>Health factor</span>
@@ -196,7 +218,7 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
                 className={`repay-button ${hasError ? 'error shake' : ''}`}
                 onClick={handleRepayClick}
               >
-                {hasError ? 'Repay Failed' : `Approve ${tokenName} to continue`}
+                {hasError ? 'Repay Error' : `Approve ${tokenName} to continue`}
               </button>
             </div>
           </>

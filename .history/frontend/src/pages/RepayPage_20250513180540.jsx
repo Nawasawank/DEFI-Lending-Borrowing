@@ -81,7 +81,7 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
         setHealthEnd(safeToFixed(previewHealthData.healthFactor));
 
         const previewDebtData = await previewDebtRes.json();
-        setRemainingDebt(safeToFixed(previewDebtData.remainingDebt, 6));
+        setRemainingDebt(previewDebtData.remainingDebt);
       } catch (err) {
         console.error('Failed to fetch repay page data:', err);
       } finally {
@@ -93,7 +93,14 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
 
   const handleRepayClick = async () => {
     const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0 || parsedAmount > debt || parsedAmount > walletBalance) {
+    const parsedRemaining = parseFloat(remainingDebt);
+    if (
+      isNaN(parsedAmount) ||
+      parsedAmount <= 0 ||
+      parsedRemaining === undefined ||
+      parsedAmount > parsedRemaining ||
+      parsedAmount > walletBalance
+    ) {
       setHasError(true);
       setTimeout(() => setHasError(false), 1200);
       return;
@@ -107,7 +114,7 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
         body: JSON.stringify({
           fromAddress: account,
           assetAddress,
-          amount: parsedAmount.toFixed(18),
+          amount: parsedAmount,
         }),
       });
 
@@ -145,6 +152,7 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
               <div className="input-box" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <input
                   type="text"
+                  inputMode="decimal"
                   value={amount}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -181,7 +189,7 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
                 <>
                   <div className="row">
                     <span>Remaining debt</span>
-                    <span>{debt} {tokenName} → {remainingDebt} {tokenName}</span>
+                    <span>{remainingDebt} {tokenName}</span>
                   </div>
                   <div className="row">
                     <span>Health factor</span>
@@ -196,7 +204,7 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
                 className={`repay-button ${hasError ? 'error shake' : ''}`}
                 onClick={handleRepayClick}
               >
-                {hasError ? 'Repay Failed' : `Approve ${tokenName} to continue`}
+                {hasError ? 'Repay Error' : `Approve ${tokenName} to continue`}
               </button>
             </div>
           </>

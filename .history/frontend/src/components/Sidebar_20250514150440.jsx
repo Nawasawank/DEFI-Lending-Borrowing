@@ -21,47 +21,36 @@ const Sidebar = () => {
   const navigate = useNavigate();
 
   const connectWallet = async () => {
-    if (!window.ethereum) {
+    if (window.ethereum) {
+      try {
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        const userAddress = accounts[0];
+        const blockie = makeBlockie(userAddress);
+
+        setAccount(userAddress);
+        setBlockieSrc(blockie);
+
+        localStorage.setItem("account", userAddress);
+        localStorage.setItem("blockie", blockie);
+
+        // Claim tokens, then reload twice
+        await fetch(`http://localhost:3001/api/claimToken?userAddress=${userAddress}`);
+        window.location.reload(); // First reload
+        setTimeout(() => {
+          window.location.reload(); // Second reload after 1.5 seconds
+        }, 1500);
+      } catch (error) {
+        console.error("Connection rejected:", error);
+      }
+    } else {
       alert("MetaMask not detected. Please install it from https://metamask.io/");
-      return;
-    }
-
-    try {
-      const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
-      const userAddress = accounts[0];
-      const blockie = makeBlockie(userAddress);
-
-      setAccount(userAddress);
-      setBlockieSrc(blockie);
-
-      localStorage.setItem("account", userAddress);
-      localStorage.setItem("blockie", blockie);
-
-      // Claim all tokens
-      await fetch(`http://localhost:3001/api/claimToken?userAddress=${userAddress}`);
-
-      // Reload to trigger state refresh (or replace with manual refetch)
-      window.location.reload();
-    } catch (error) {
-      console.error("Connection rejected:", error);
     }
   };
 
   useEffect(() => {
     const initWallet = async () => {
-      if (!window.ethereum) return;
-
-      const accounts = await window.ethereum.request({ method: "eth_accounts" });
-      if (accounts.length > 0) {
-        const addr = accounts[0];
-        const blockie = makeBlockie(addr);
-        setAccount(addr);
-        setBlockieSrc(blockie);
-        localStorage.setItem("account", addr);
-        localStorage.setItem("blockie", blockie);
-      }
-
-      window.ethereum.on("accountsChanged", (accounts) => {
+      if (window.ethereum) {
+        const accounts = await window.ethereum.request({ method: "eth_accounts" });
         if (accounts.length > 0) {
           const addr = accounts[0];
           const blockie = makeBlockie(addr);
@@ -69,15 +58,26 @@ const Sidebar = () => {
           setBlockieSrc(blockie);
           localStorage.setItem("account", addr);
           localStorage.setItem("blockie", blockie);
-          navigate(0); // reload current route
-        } else {
-          setAccount(null);
-          setBlockieSrc("");
-          localStorage.removeItem("account");
-          localStorage.removeItem("blockie");
-          console.log("Wallet disconnected");
         }
-      });
+
+        window.ethereum.on("accountsChanged", (accounts) => {
+          if (accounts.length > 0) {
+            const addr = accounts[0];
+            const blockie = makeBlockie(addr);
+            setAccount(addr);
+            setBlockieSrc(blockie);
+            localStorage.setItem("account", addr);
+            localStorage.setItem("blockie", blockie);
+            navigate(0); // refresh to apply new user
+          } else {
+            setAccount(null);
+            setBlockieSrc("");
+            localStorage.removeItem("account");
+            localStorage.removeItem("blockie");
+            console.log("Wallet disconnected");
+          }
+        });
+      }
     };
 
     initWallet();

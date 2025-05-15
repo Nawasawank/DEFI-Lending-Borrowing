@@ -57,7 +57,7 @@ const DisplayIcons = ({ onViewTransactionClick }) => {
         <div className="icon-box">
           <span className="icon-label">Net Worth</span>
           <span className="icon-value">
-            {loading ? <div className="skeleton skeleton-text" style={{ width: '80px', height: '20px' }} /> : `${netOverview.netWorthUSD}`}
+            {loading ? <div className="skeleton skeleton-text" style={{ width: '80px', height: '20px' }} /> : `$ ${netOverview.netWorthUSD}`}
           </span>
         </div>
         <div className="icon-box">

@@ -11,7 +11,7 @@ const WithdrawConfirmPage = ({ onClose, tokenName, amount }) => {
           <img src={Check} alt="Check" className="checkmark-icon" />
         </div>
 
-        <h2 className="confirm-title">Withdraw Complete!</h2>
+        <h2 className="confirm-title">Withdrawal Complete!</h2>
 
         <p className="confirm-description">
           You withdrew {amount ? amount.toFixed(2) : '...'} {tokenName}

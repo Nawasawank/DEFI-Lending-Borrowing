@@ -57,19 +57,31 @@ const DisplayIcons = ({ onViewTransactionClick }) => {
         <div className="icon-box">
           <span className="icon-label">Net Worth</span>
           <span className="icon-value">
-            {loading ? <div className="skeleton skeleton-text" style={{ width: '80px', height: '20px' }} /> : `${netOverview.netWorthUSD}`}
+            {loading ? (
+              <div className="skeleton skeleton-text" style={{ width: '80px', height: '20px' }} />
+            ) : (
+              netOverview.netWorthUSD
+            )}
           </span>
         </div>
         <div className="icon-box">
           <span className="icon-label">Net APY</span>
           <span className="icon-value">
-            {loading ? <div className="skeleton skeleton-text" style={{ width: '60px', height: '20px' }} /> : netOverview.netAPY}
+            {loading ? (
+              <div className="skeleton skeleton-text" style={{ width: '60px', height: '20px' }} />
+            ) : (
+              netOverview.netAPY
+            )}
           </span>
         </div>
         <div className="icon-box">
           <span className="icon-label">Health factor</span>
           <span className="icon-value">
-            {loading ? <div className="skeleton skeleton-text" style={{ width: '50px', height: '20px' }} /> : netOverview.healthFactor}
+            {loading ? (
+              <div className="skeleton skeleton-text" style={{ width: '50px', height: '20px' }} />
+            ) : (
+              netOverview.healthFactor
+            )}
           </span>
         </div>
       </div>

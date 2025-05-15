@@ -121,15 +121,4 @@
   
 }
 
-/* Transaction table header */
-.tx-table thead th {
-  color: white;
-}
-
-/* Transaction table body */
-.tx-table tbody td {
-  color: white;
-}
-
-
 

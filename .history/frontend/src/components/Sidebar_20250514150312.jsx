@@ -13,7 +13,7 @@ import USDC from "../pictures/usdc.png";
 import DAI from "../pictures/dai.png";
 import GHO from "../pictures/gho.svg";
 
-const Sidebar = () => {
+const Sidebar = ({ onProfileUpdate }) => {
   const [account, setAccount] = useState(null);
   const [blockieSrc, setBlockieSrc] = useState("");
   const [showOverlay, setShowOverlay] = useState(false);
@@ -37,11 +37,14 @@ const Sidebar = () => {
       localStorage.setItem("account", userAddress);
       localStorage.setItem("blockie", blockie);
 
-      // Claim all tokens
+      // Step 1: Claim tokens
       await fetch(`http://localhost:3001/api/claimToken?userAddress=${userAddress}`);
 
-      // Reload to trigger state refresh (or replace with manual refetch)
-      window.location.reload();
+      // Step 2: Refresh user profile
+      if (typeof onProfileUpdate === "function") {
+        onProfileUpdate(userAddress);
+      }
+
     } catch (error) {
       console.error("Connection rejected:", error);
     }
@@ -59,6 +62,10 @@ const Sidebar = () => {
         setBlockieSrc(blockie);
         localStorage.setItem("account", addr);
         localStorage.setItem("blockie", blockie);
+
+        if (typeof onProfileUpdate === "function") {
+          onProfileUpdate(addr);
+        }
       }
 
       window.ethereum.on("accountsChanged", (accounts) => {
@@ -69,7 +76,7 @@ const Sidebar = () => {
           setBlockieSrc(blockie);
           localStorage.setItem("account", addr);
           localStorage.setItem("blockie", blockie);
-          navigate(0); // reload current route
+          navigate(0); // reload route
         } else {
           setAccount(null);
           setBlockieSrc("");
@@ -81,7 +88,7 @@ const Sidebar = () => {
     };
 
     initWallet();
-  }, [navigate]);
+  }, [navigate, onProfileUpdate]);
 
   const toggleOverlay = () => {
     if (showOverlay) setSelectedAsset(null);

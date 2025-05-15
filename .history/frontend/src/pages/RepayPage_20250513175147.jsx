@@ -107,7 +107,7 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
         body: JSON.stringify({
           fromAddress: account,
           assetAddress,
-          amount: parsedAmount.toFixed(18),
+          amount: parsedAmount,
         }),
       });
 
@@ -144,12 +144,11 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
               <label>Repay with</label>
               <div className="input-box" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <input
-                  type="text"
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
                   value={amount}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (/^\d*\.?\d*$/.test(val)) setAmount(val);
-                  }}
+                  onChange={(e) => setAmount(e.target.value)}
                   style={{ flex: 1, marginRight: '10px' }}
                 />
                 <div className="token-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -196,7 +195,7 @@ const RepayPage = ({ onClose, tokenName = 'USDC', debt = 0.011 }) => {
                 className={`repay-button ${hasError ? 'error shake' : ''}`}
                 onClick={handleRepayClick}
               >
-                {hasError ? 'Repay Failed' : `Approve ${tokenName} to continue`}
+                {hasError ? 'Repay Error' : `Approve ${tokenName} to continue`}
               </button>
             </div>
           </>
